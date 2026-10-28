@@ -4,8 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BLINK STUDY — 瞬き計測システム</title>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;700&family=Noto+Sans+JP:wght@300;400;700;900&display=swap" rel="stylesheet">
 
@@ -342,10 +341,14 @@
       display: none; flex-direction: column; align-items: center; justify-content: center;
       padding: 60px 20px 16px; text-align: center;
     }
+    body[data-stage="consent"] #screen-consent,
     body[data-stage="welcome"] #screen-welcome,
-    body[data-stage="input"]   #screen-input { display: flex; }
+    body[data-stage="input"]   #screen-input,
+    body[data-stage="end"]     #screen-end { display: flex; }
+    body[data-stage="consent"] #app,
     body[data-stage="welcome"] #app,
-    body[data-stage="input"]   #app { visibility: hidden; }
+    body[data-stage="input"]   #app,
+    body[data-stage="end"]     #app { visibility: hidden; }
 
     .stage-badge {
       font-family: var(--font-mono); font-size: 10px; letter-spacing: .3em;
@@ -433,6 +436,107 @@
     .cam-active-only { display: none; }
     body.cam-on .cam-active-only { display: flex; }
 
+    /* ──────────────────── 追加：管理者表示・入力欄・モーダルなど ──────────────────── */
+    .admin-only { display: none; }
+    body.admin .admin-only { display: block; }
+    .admin-inline { display: none; }
+    body.admin .admin-inline { display: inline; }
+
+    .field { margin-bottom: 14px; }
+    .field label {
+      display: block; font-family: var(--font-ui); font-weight: 600; font-size: 13px;
+      color: var(--text-mid); margin-bottom: 6px;
+    }
+    .field input[type=text], .field input[type=number], .field textarea, .field select, #cam-select {
+      width: 100%; padding: 9px 10px;
+      font-family: var(--font-body); font-size: 14px;
+      background: var(--surface2); color: var(--text);
+      border: 1px solid var(--border2); border-radius: 8px;
+    }
+    .field textarea { resize: none; }
+    .field input:focus, .field textarea:focus, .field select:focus, #cam-select:focus {
+      outline: none; border-color: var(--accent); box-shadow: var(--glow-a);
+    }
+    .check { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-mid); cursor: pointer; }
+    .check input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+    .hint { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); line-height: 1.6; margin-top: 6px; }
+    .tip { font-size: 11px; color: var(--gold); line-height: 1.6; text-align: center; margin-bottom: 6px; }
+    .welcome-tip { max-width: 460px; font-size: 12px; margin-bottom: 20px; }
+
+    .status-line { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; color: var(--text-dim); margin-top: 6px; max-width: 92vw; line-height: 1.6; }
+    #upload-status { margin-top: 22px; }
+    .end-msg { font-size: 14px; color: var(--text-mid); max-width: 460px; line-height: 1.8; margin: 4px 0 12px; }
+    .end-send { font-size: 12px; color: var(--text-mid); margin: 0 0 18px; letter-spacing: 0; }
+
+    .consent-title { font-size: clamp(20px, 4.5vw, 30px); }
+    .consent-list {
+      text-align: left; max-width: 560px; width: 100%;
+      font-size: 13px; line-height: 1.75; color: var(--text-mid);
+      margin: 4px 0 14px; padding-left: 1.3em;
+      max-height: calc(100dvh - 330px); min-height: 120px; overflow-y: auto;
+    }
+    .consent-list li { margin-bottom: 6px; }
+    .consent-list b { color: var(--text); }
+    .consent-check { justify-content: center; margin-bottom: 14px; font-size: 14px; color: var(--text); }
+
+    .activity-btn {
+      width: 100%; padding: 8px 10px; margin-bottom: 8px;
+      font-family: var(--font-body); font-size: 13px; font-weight: 600;
+      border: 1px solid var(--border2); border-radius: 10px;
+      background: var(--surface2); color: var(--text-mid);
+      cursor: pointer; transition: all .2s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .activity-btn:hover { border-color: var(--accent); color: var(--text); }
+    .activity-btn.unset { border-color: var(--gold); color: var(--gold); }
+    .admin-readout { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); text-align: center; margin-top: 6px; }
+
+    /* 計測中にカメラ映像を隠す */
+    .preview-cover {
+      display: none; position: absolute; inset: 0; z-index: 1;
+      align-items: center; justify-content: center; text-align: center; padding: 16px;
+      background: var(--surface2); color: var(--text-dim);
+      font-family: var(--font-mono); font-size: 12px; line-height: 1.8;
+    }
+    .camera-card.preview-hidden video, .camera-card.preview-hidden canvas { visibility: hidden; }
+    .camera-card.preview-hidden .preview-cover { display: flex; }
+    .cam-status-bar { z-index: 2; }
+
+    /* モーダル */
+    .modal {
+      position: fixed; inset: 0; z-index: 2000; display: none;
+      align-items: center; justify-content: center; padding: 16px;
+      background: rgba(0,0,0,.65);
+    }
+    .modal.show { display: flex; }
+    .modal-card {
+      width: 100%; max-width: 440px; max-height: 92dvh; overflow-y: auto;
+      background: var(--surface); border: 1px solid var(--border2); border-radius: 14px;
+      padding: 18px; text-align: center;
+    }
+    .modal-card h3 { font-family: var(--font-body); font-weight: 900; font-size: 18px; margin-bottom: 8px; }
+    .modal-card p { font-size: 13px; color: var(--text-mid); line-height: 1.7; }
+    .modal-card .field { text-align: left; margin-top: 12px; margin-bottom: 4px; }
+    .modal-btns { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
+    .modal-btns .stage-btn { min-width: 0; flex: 1; padding: 12px 14px; font-size: 15px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
+    .chip {
+      padding: 9px 16px; font-family: var(--font-body); font-size: 14px; font-weight: 700;
+      border: 1px solid var(--border2); border-radius: 20px;
+      background: var(--surface2); color: var(--text-mid); cursor: pointer; transition: all .15s;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--text); }
+    .chip.active { border-color: var(--accent); background: rgba(0,240,255,.1); color: var(--accent); }
+
+    /* toast：ボタン付き・長い文も折り返す */
+    #toast { display: flex; align-items: center; justify-content: center; white-space: normal; text-align: center; max-width: 92vw; line-height: 1.5; }
+    #toast.has-action { pointer-events: auto; }
+    .toast-action {
+      margin-left: 12px; padding: 4px 10px; flex: none;
+      border: 1px solid var(--accent); border-radius: 6px; background: transparent;
+      color: var(--accent); font-family: var(--font-mono); font-size: 12px; cursor: pointer;
+    }
+
     /* ── スマホ縦 ── */
     @media (max-width: 520px) {
       .stage-btn { min-width: 100%; }
@@ -447,6 +551,12 @@
       .stage-title { font-size: 22px; margin-bottom: 8px; }
       .stage-btn { padding: 10px 20px; font-size: 16px; min-width: 160px; }
       .thr-input-row { margin: 10px 0 14px; }
+      .test-big-thr { font-size: 30px; }
+      .note-sub, .test-complete-label { display: none; }
+      .test-box { padding: 6px 10px; }
+      .test-msg { margin: 2px 0; }
+      .measure-section-title { margin-bottom: 4px; }
+      .tip { margin-bottom: 4px; }
     }
     /* 横向きで低いときは、カメラを左・操作パネルを右に並べる */
     @media (orientation: landscape) and (max-height: 520px) {
@@ -456,76 +566,105 @@
     }
   </style>
 </head>
-<body data-stage="welcome">
+<body data-stage="consent">
   <div class="scanlines"></div>
 
   <!-- ── MENU BUTTON ── -->
   <button id="menu-btn" aria-label="メニュー">
     <span></span><span></span><span></span>
   </button>
-  <div id="app-title-label">瞬き検出アプリ ver3.0（研究用）</div>
+  <div id="app-title-label">瞬き検出アプリ ver3.1（研究用）</div>
 
   <!-- ── MENU PANEL ── -->
   <div id="menu-overlay"></div>
   <aside id="menu-panel">
     <div class="menu-header">
       <h2>SETTINGS</h2>
-      <p>// 瞬き検出パラメータ設定</p>
+      <p>// 計測の設定</p>
     </div>
 
-    <!-- 検出感度 -->
+    <!-- 参加者情報（任意） -->
     <div class="menu-section">
-      <div class="menu-section-title">検出感度 (EAR しきい値)</div>
-      <div class="sens-btns" id="sens-btns">
-        <button class="sens-btn" data-ear="0.13">低め</button>
-        <button class="sens-btn" data-ear="0.17">やや低め</button>
-        <button class="sens-btn" data-ear="0.20">標準</button>
-        <button class="sens-btn active" data-ear="0.24">やや高め</button>
-        <button class="sens-btn" data-ear="0.30">高め</button>
+      <div class="menu-section-title">参加者情報（任意）</div>
+      <div class="field">
+        <label for="p-id">ID（匿名コードなど）</label>
+        <input type="text" id="p-id" maxlength="40" autocomplete="off" placeholder="未入力でもOK">
       </div>
-      <div class="sens-desc-txt" id="sens-desc">やや高め — 浅い瞬きでも反応しやすくなります</div>
-
-      <!-- EARスライダー -->
-      <div class="setting-row" style="margin-top:14px">
-        <label>EAR しきい値 <span class="val" id="ear-val-txt">0.25</span></label>
-        <input type="range" id="ear-slider" min="0.05" max="0.60" step="0.01" value="0.25">
+      <div class="field">
+        <label for="p-session">セッション番号</label>
+        <input type="text" id="p-session" maxlength="20" autocomplete="off" placeholder="未入力でもOK">
       </div>
+      <div class="field">
+        <label for="p-memo">メモ</label>
+        <textarea id="p-memo" rows="2" maxlength="300" placeholder="未入力でもOK"></textarea>
+      </div>
+      <div class="hint">入力しなくても計測できます。氏名など、個人が特定できる情報は書かないでください。</div>
+    </div>
 
-      <!-- EAR リアルタイムモニター -->
-      <div class="ear-monitor">
-        <div class="ear-label">👁 EAR リアルタイム値</div>
-        <div class="ear-bar-track">
-          <div class="ear-bar-fill" id="ear-bar"></div>
+    <!-- 計測オプション -->
+    <div class="menu-section">
+      <div class="menu-section-title">計測オプション</div>
+      <label class="check"><input type="checkbox" id="opt-hide-preview" checked> 計測中はカメラ映像を隠す</label>
+      <div class="hint">自分の顔が映っていると、瞬きに影響することがあります。映像を隠していても、顔が検出できているかは状態表示で分かります。</div>
+      <div class="field" style="margin-top:14px">
+        <label for="opt-planned">予定時間（分）</label>
+        <input type="number" id="opt-planned" min="1" max="240" step="1" inputmode="numeric" placeholder="未設定（手動で終了）">
+      </div>
+      <div class="hint">設定すると、その時間になったら音を鳴らして自動で終了します。</div>
+    </div>
+
+    <!-- カメラ -->
+    <div class="menu-section">
+      <div class="menu-section-title">カメラ</div>
+      <select id="cam-select"><option value="">（カメラ起動後に選べます）</option></select>
+      <div class="hint">外付けWebカメラを使うときは、ここで切り替えます（計測中は変更できません）。</div>
+    </div>
+
+    <!-- ここから管理者用（URLの末尾に ?admin を付けたときだけ表示） -->
+    <div class="admin-only">
+      <div class="menu-section">
+        <div class="menu-section-title">検出感度 (EAR しきい値) — 管理者</div>
+        <div class="sens-btns" id="sens-btns">
+          <button class="sens-btn" data-ear="0.13">低め</button>
+          <button class="sens-btn" data-ear="0.17">やや低め</button>
+          <button class="sens-btn" data-ear="0.20">標準</button>
+          <button class="sens-btn active" data-ear="0.24">やや高め</button>
+          <button class="sens-btn" data-ear="0.30">高め</button>
         </div>
-        <div class="ear-val-row">
-          <span>0.10 (閉)</span>
-          <span id="ear-live-val" style="color:var(--text)">— (計測中に表示)</span>
-          <span>0.40 (開)</span>
+        <div class="sens-desc-txt" id="sens-desc">やや高め — 浅い瞬きでも反応しやすくなります</div>
+
+        <div class="setting-row" style="margin-top:14px">
+          <label>EAR しきい値 <span class="val" id="ear-val-txt">0.25</span></label>
+          <input type="range" id="ear-slider" min="0.05" max="0.60" step="0.01" value="0.25">
+        </div>
+
+        <div class="ear-monitor">
+          <div class="ear-label">👁 EAR リアルタイム値</div>
+          <div class="ear-bar-track"><div class="ear-bar-fill" id="ear-bar"></div></div>
+          <div class="ear-val-row">
+            <span>0.10 (閉)</span>
+            <span id="ear-live-val" style="color:var(--text)">—</span>
+            <span>0.40 (開)</span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- 最小フレーム数 -->
-    <div class="menu-section">
-      <div class="menu-section-title">その他の設定</div>
-      <div class="setting-row">
-        <label>最小検出フレーム数 <span class="val" id="minframe-val">2</span></label>
-        <input type="range" id="minframe-slider" min="1" max="5" step="1" value="2">
+      <div class="menu-section">
+        <div class="menu-section-title">その他の検出設定 — 管理者</div>
+        <div class="setting-row">
+          <label>最小閉眼時間 <span class="val"><span id="minclosed-val">60</span> ms</span></label>
+          <input type="range" id="minclosed-slider" min="20" max="200" step="10" value="60">
+        </div>
+        <div class="hint">この時間より短い目の閉じは、瞬きに数えません。処理が遅い（fpsが低い）端末では、短すぎると取りこぼします。</div>
+        <div class="hint" style="margin-top:10px">しきい値を計測中に変更すると、変更した時刻が記録に残ります。</div>
       </div>
-      <div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);line-height:1.6">
-        値が小さいほど素早い瞬きも検出しやすくなります。<br>ノイズが多い場合は増やしてください。
-      </div>
-    </div>
 
-    <!-- EARについての説明 -->
-    <div class="menu-section">
-      <div class="menu-section-title">EAR とは？</div>
-      <div style="font-size:12px;color:var(--text-dim);font-family:var(--font-mono);line-height:1.7">
-        Eye Aspect Ratio（目のアスペクト比）。<br>
-        目の縦幅 ÷ 横幅 で算出。<br>
-        瞬き時に急激に低下する数値を使って瞬きを検出します。<br><br>
-        通常: 0.25〜0.35<br>
-        閉じた: 0.10〜0.15
+      <div class="menu-section">
+        <div class="menu-section-title">EAR とは？</div>
+        <div class="hint" style="line-height:1.7">
+          Eye Aspect Ratio（目のアスペクト比）。目の縦幅 ÷ 横幅。<br>
+          通常: 0.25〜0.35 ／ 閉じた: 0.10〜0.15
+        </div>
       </div>
     </div>
   </aside>
@@ -539,6 +678,7 @@
       <video id="video" autoplay playsinline muted style="display:none"></video>
       <canvas id="overlay"></canvas>
       <div id="blink-flash"></div>
+      <div class="preview-cover">計測中です<br>（カメラ映像は非表示にしています）</div>
 
       <div class="camera-idle" id="camera-idle">
         <div class="eye-icon">👁️</div>
@@ -560,10 +700,10 @@
    </div><!-- /cam-col -->
 
    <div id="panel-col">
-
     <!-- ── しきい値テストパネル ── -->
     <div class="measure-section" id="test-panel">
       <div class="measure-section-title">// しきい値テスト</div>
+      <div class="tip">💡 実際に計測で使うモニター（ゲームや作業をする画面）を見ながらテストすると、精度が上がります。</div>
 
       <div class="test-box" id="test-run">
         <div class="test-thr">テスト中のしきい値 <span id="test-thr-val">0.10</span></div>
@@ -573,10 +713,10 @@
       </div>
 
       <div class="test-box" id="test-done" style="display:none">
-        <div class="test-thr">// TEST COMPLETE</div>
+        <div class="test-thr test-complete-label">// TEST COMPLETE</div>
         <div class="test-msg">あなたのしきい値は</div>
         <div class="test-big-thr" id="test-result-thr">0.20</div>
-        <div class="test-note">※この数値を覚えておくと、次回からテストは不要になります。<br>（次回は「いいえ」を選び、この数値を入力してください）</div>
+        <div class="test-note">※この数値を覚えておくと、次回からテストは不要になります。<span class="note-sub"><br>（この端末には自動で記録されます。別の端末では「いいえ」を選び、この数値を入力してください）</span></div>
         <button id="btn-test-go" class="cam-start-btn">計測へ</button>
       </div>
 
@@ -585,7 +725,8 @@
 
     <!-- ── 計測パネル ── -->
     <div class="measure-section" id="measure-panel">
-      <div class="measure-section-title">// 計測 — しきい値 <span id="meas-thr">0.20</span></div>
+      <div class="measure-section-title">// 計測<span class="admin-inline"> — しきい値 <span id="meas-thr">0.20</span></span></div>
+      <button id="btn-activity" class="activity-btn unset">活動：未選択 ▸ 選ぶ</button>
       <div class="measure-btns">
         <button class="meas-btn main" id="meas-btn-main" disabled>
           <span class="meas-timer" id="timer-main">00:00</span>
@@ -600,197 +741,316 @@
           <span class="btn-label" id="label-away">離席開始</span>
         </button>
       </div>
+      <div class="admin-only admin-readout" id="admin-readout"></div>
       <button id="btn-back-start" class="cam-ctrl-btn" style="margin-top:8px">← 最初の画面に戻る</button>
     </div>
    </div><!-- /panel-col -->
   </div>
+
+  <!-- ── 同意確認画面 ── -->
+  <section class="stage-screen" id="screen-consent">
+    <div class="stage-badge">CONSENT</div>
+    <h1 class="stage-title consent-title">研究へのご協力のお願い</h1>
+    <ul class="consent-list">
+      <li>この研究は、画面（動画・ゲーム・作業など）を見ているときの<b>瞬きの回数や間隔</b>を調べるものです。</li>
+      <li>カメラ映像は<b>この端末の中だけで処理</b>され、<b>保存も送信もされません</b>。</li>
+      <li>記録・送信されるのは、瞬きの時刻などの<b>数値データ</b>と、利用環境（ブラウザの種類・画面サイズなど）です。氏名は記録しません。</li>
+      <li>参加は自由です。途中でやめても、不利益は一切ありません。</li>
+      <li>高校生の方は、<b>保護者の方の同意</b>も確認したうえで参加してください。</li>
+      <li>研究責任者・連絡先：【ここに記入してください】</li>
+    </ul>
+    <label class="check consent-check"><input type="checkbox" id="consent-check"> 上の内容を理解し、同意します</label>
+    <div class="stage-btns">
+      <button id="btn-consent" class="stage-btn primary" disabled>同意して始める</button>
+    </div>
+  </section>
 
   <!-- ── 最初の画面 ── -->
   <section class="stage-screen" id="screen-welcome">
     <div class="stage-badge">BLINK STUDY</div>
     <h1 class="stage-title">このアプリは初めてですか？</h1>
     <p class="stage-desc">初めての方は、あなたに合った瞬き検出のしきい値を調べるテストを行います。<br>2回目以降の方は、前回のしきい値を入力してください。</p>
+    <p class="tip welcome-tip">💡 しきい値は、実際に計測で使うモニター（ゲームや作業をする画面）を見ながら設定すると、精度が上がります。</p>
     <div class="stage-btns">
       <button id="btn-first-yes" class="stage-btn primary">はい<small>しきい値テストを行う</small></button>
       <button id="btn-first-no" class="stage-btn">いいえ<small>しきい値を入力する</small></button>
     </div>
-    <div id="upload-status" style="margin-top:28px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--text-dim)"></div>
+    <div id="upload-status" class="status-line"></div>
+    <div id="pending-status" class="status-line"></div>
   </section>
 
   <!-- ── しきい値入力画面 ── -->
   <section class="stage-screen" id="screen-input">
     <div class="stage-badge">THRESHOLD</div>
     <h1 class="stage-title">前回のしきい値を入力してください</h1>
+    <div class="hint" id="thr-hint" style="margin-top:4px"></div>
     <div class="thr-input-row">
       <input type="number" id="thr-number" min="0.05" max="0.60" step="0.01" value="0.20" inputmode="decimal">
       <input type="range" id="thr-range" min="0.05" max="0.60" step="0.01" value="0.20">
     </div>
     <div class="stage-btns">
       <button id="btn-input-back" class="stage-btn">← 戻る</button>
+      <button id="btn-input-check" class="stage-btn">念のため確認テスト<small>この値の近くを5回の瞬きで確かめる</small></button>
       <button id="btn-input-go" class="stage-btn primary">計測へ →</button>
     </div>
   </section>
 
+  <!-- ── 終了画面 ── -->
+  <section class="stage-screen" id="screen-end">
+    <div class="stage-badge">FINISHED</div>
+    <h1 class="stage-title" id="end-title">計測が終了しました</h1>
+    <p class="end-msg" id="end-msg"></p>
+    <div class="status-line end-send" id="end-send"></div>
+    <div class="stage-btns">
+      <button id="btn-end-home" class="stage-btn primary" disabled>最初の画面に戻る</button>
+    </div>
+  </section>
+
+  <!-- ── 終了の確認 ── -->
+  <div class="modal" id="modal-confirm">
+    <div class="modal-card">
+      <h3>計測を終了しますか？</h3>
+      <p>終了すると、ここまでのデータを保存・送信します。</p>
+      <div class="modal-btns">
+        <button id="btn-confirm-no" class="stage-btn">続ける</button>
+        <button id="btn-confirm-yes" class="stage-btn primary">終了する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 活動の選択 ── -->
+  <div class="modal" id="modal-activity">
+    <div class="modal-card">
+      <h3>いま何をしていますか？</h3>
+      <div class="chips" id="act-cats">
+        <button class="chip" data-cat="動画">動画</button>
+        <button class="chip" data-cat="映画">映画</button>
+        <button class="chip" data-cat="作業">作業</button>
+        <button class="chip" data-cat="ゲーム">ゲーム</button>
+        <button class="chip" data-cat="その他">その他</button>
+      </div>
+      <div class="field act-field" id="act-game-box" style="display:none">
+        <label for="act-genre">ゲームのジャンル</label>
+        <select id="act-genre"></select>
+        <label for="act-game" style="margin-top:10px">ゲーム名（任意）</label>
+        <input type="text" id="act-game" maxlength="60" autocomplete="off" placeholder="書かなくてもOK">
+      </div>
+      <div class="field act-field" id="act-other-box" style="display:none">
+        <label for="act-detail">内容（詳しく）</label>
+        <input type="text" id="act-detail" maxlength="60" autocomplete="off" placeholder="例：読書、プログラミング など">
+      </div>
+      <div class="hint">計測中に活動が変わったときは、もう一度ここで選び直すと、切り替えた時刻が記録されます。</div>
+      <div class="modal-btns">
+        <button id="btn-act-cancel" class="stage-btn">キャンセル</button>
+        <button id="btn-act-ok" class="stage-btn primary" disabled>決定</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast"></div>
 
-  <script>
+<script>
   // ============================================================
-  //  BLINK STUDY — 瞬き計測システム（研究用）
+  //  BLINK STUDY — 瞬き計測システム（研究用）ver3.1
   // ============================================================
-
-  // ── config ──────────────────────────────────────────────────
-  let cfg = { earThreshold: 0.25, minFrames: 2 };
+  const APP_VERSION     = 'ver3.1';
+  const LIB_VERSIONS    = { faceMesh: '0.4.1633559619' };   // 読み込むMediaPipeのバージョン（固定）
+  const CONSENT_VERSION = '2026-10';                         // 同意文を変えたら更新
 
   // ── データ送信先（Google Apps Script） ───────────────────────
-  // 空のままなら従来どおりこのPCにJSONをダウンロードします。
+  // 空のままなら、このPCにJSONをダウンロードします。
   const UPLOAD_URL        = 'https://script.google.com/macros/s/AKfycbyPab1181EJpo0zH67DQdFO8AjIz7-MF0VXDb9xSslqtxEbuYoCSYkxbx-hAFol9zVT/exec';   // Apps ScriptのウェブアプリURL（…/exec）
   const UPLOAD_TOKEN      = 'mabataki';   // Apps Script側のTOKENと同じ合言葉
   const UPLOAD_TIMEOUT_MS = 15000;
   const UPLOAD_RETRIES    = 2;    // 送信の試行回数
 
-  // ── state ───────────────────────────────────────────────────
-  let blinkFrames = 0;
-  let isEyeClosed = false;
-  let faceMesh = null, cameraRunning = false;
-  let mediaStream = null; // 一度許可されたカメラストリームを使い回し、許可ダイアログの再表示を防ぐ
-  let frameLoopId = null; // 自前のrequestAnimationFrameループ（camera_utilsのCameraクラスは
-                           // start()のたびに内部でgetUserMediaを呼び直してしまうため使用しない）
+  // ── 調整用の定数 ─────────────────────────────────────────────
+  const DET   = { hysteresis: 0.02, minIntervalMs: 150 };  // 目が開いたと判定する余裕 / 瞬きの最短間隔
+  const LOST_MIN_MS = 300;                                 // これ以上顔が見えない区間を「未検出」とする
+  const GUIDE = { farFace: 0.20, nearFace: 0.70, edgeX: 0.25, edgeYlo: 0.20, edgeYhi: 0.80, dark: 50, lowFps: 15 };
+  const STALL = { hiddenMs: 5000, visibleMs: 20000, noteMs: 1500 };  // 画面が止まったと判断する時間
+  const TEST  = { start: 0.10, step: 0.10, confirmStep: 0.02, max: 0.40, target: 5,
+                  countdownSec: 3, autoJudgeSec: 20, pauseMs: 3000 };
+  const GENRES = ['FPS / TPS', 'バトルロイヤル', 'MOBA', 'アクション', 'アクションRPG', 'RPG', 'アドベンチャー',
+                  'オープンワールド', 'シミュレーション', '経営・育成', '戦略・RTS', 'パズル', '音楽・リズム',
+                  'スポーツ', 'レース', '格闘', 'ホラー', 'サンドボックス・建築', 'カード・ボードゲーム',
+                  'ビジュアルノベル', 'ローグライク', 'プラットフォーマー', 'シューティング（STG）', 'その他・不明'];
 
-  // ── DOM refs ─────────────────────────────────────────────────
+  const PENDING_KEY = 'blink_pending_v1', LAST_THR_KEY = 'blink_last_thr_v1',
+        THR_BY_ID_KEY = 'blink_thr_by_id_v1', HIDE_KEY = 'blink_opt_hide_v1';
+
+  let cfg = { earThreshold: 0.25, minClosedMs: 60 };
+  const ADMIN = new URLSearchParams(location.search).has('admin');
+  if (ADMIN) document.body.classList.add('admin');
+
+  // ── 共通 ─────────────────────────────────────────────────────
   const $ = id => document.getElementById(id);
   const video   = $('video');
   const overlay = $('overlay');
   const ctx     = overlay.getContext('2d');
+  const p2 = n => String(n).padStart(2, '0');
+  const r2 = x => Math.round(x * 100) / 100;
+  const r3 = x => Math.round(x * 1000) / 1000;
+  const store = {
+    get(k, d = null) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+  };
 
-  // ── EAR計算 ──────────────────────────────────────────────────
-  function dist(a, b) { return Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2); }
+  // ── toast（右側に「取り消す」などのボタンも付けられる）──────────
+  let toastTimer = null;
+  function toast(msg, ms = 2400, action = null) {
+    const el = $('toast');
+    el.textContent = '';
+    const s = document.createElement('span'); s.textContent = msg; el.appendChild(s);
+    el.classList.toggle('has-action', !!action);
+    if (action) {
+      const b = document.createElement('button');
+      b.className = 'toast-action'; b.textContent = action.label;
+      b.onclick = () => { el.classList.remove('show'); action.fn(); };
+      el.appendChild(b);
+    }
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+  }
+
+  // ── 画面遷移 ─────────────────────────────────────────────────
+  let stage = 'consent';   // consent | welcome | input | test | measure | end
+  function setStage(s) { stage = s; document.body.dataset.stage = s; }
+
+  // メニューのスライダー経由でcfgと表示を同期する
+  function setThreshold(v) {
+    const s = $('ear-slider');
+    s.value = v;
+    s.dispatchEvent(new Event('input'));
+  }
+
+  // ============================================================
+  //  カメラ・FaceMesh
+  // ============================================================
+  let faceMesh = null, cameraRunning = false, mediaStream = null, frameLoopId = null;
+  let camInfo = null, selectedCameraId = '';
+  let camAspect = 4 / 3;
+
+  function dist(a, b) { return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2); }
   function ear6(lm, t, b, l, r, t2, b2) {
-    return (dist(lm[t],lm[b]) + dist(lm[t2],lm[b2])) / (2 * dist(lm[l],lm[r]));
+    return (dist(lm[t], lm[b]) + dist(lm[t2], lm[b2])) / (2 * dist(lm[l], lm[r]));
   }
-  function getEAR(lm) {
-    return (ear6(lm,159,145,33,133,160,144) + ear6(lm,386,374,362,263,387,373)) / 2;
+  function getEARs(lm) {
+    const right = ear6(lm, 159, 145, 33, 133, 160, 144);   // 本人の右目
+    const left  = ear6(lm, 386, 374, 362, 263, 387, 373);  // 本人の左目
+    return { r: right, l: left, avg: (right + left) / 2 };
   }
 
-  // ── フレーム送信ループ ───────────────────────────────────────
-  // faceMeshは再代入されることがあるため、都度クロージャではなく変数を直接参照する
+  function createFaceMesh() {
+    faceMesh = new FaceMesh({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${LIB_VERSIONS.faceMesh}/${f}` });
+    faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: .5, minTrackingConfidence: .5 });
+    faceMesh.onResults(onFaceResult);
+  }
+
+  // フレーム送信ループ（faceMeshは再代入されることがあるので変数を直接参照する）
   async function frameLoop() {
     if (faceMesh && video.readyState >= 2) {
-      try {
-        await faceMesh.send({image: video}); // 完了を待ってから次のフレームを送る（重複呼び出しで検出が止まるのを防ぐ）
-      } catch (e) { /* 一時的な送信エラーは無視して継続 */ }
+      try { await faceMesh.send({ image: video }); } catch (e) { /* 一時的なエラーは無視 */ }
     }
     frameLoopId = requestAnimationFrame(frameLoop);
   }
 
-  // ── FaceMesh 初期化 ──────────────────────────────────────────
   async function startCamera() {
     if (cameraRunning) return;
     $('btn-camera-start').disabled = true;
     try {
-      // すでに許可済みのストリームがあれば使い回し、再度の許可ダイアログを避ける
       if (!mediaStream || !mediaStream.active) {
-        mediaStream = await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'}});
+        const v = selectedCameraId
+          ? { deviceId: { exact: selectedCameraId }, width: 640, height: 480 }
+          : { width: 640, height: 480, facingMode: 'user' };
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: v });
       }
       video.srcObject = mediaStream;
       await video.play();
       video.style.display = 'block';
       $('camera-idle').style.display = 'none';
 
-      faceMesh = new FaceMesh({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
-      faceMesh.setOptions({maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:.5, minTrackingConfidence:.5});
-      faceMesh.onResults(onFaceResult);
+      const track = mediaStream.getVideoTracks()[0];
+      const st = track.getSettings ? track.getSettings() : {};
+      camInfo = { label: track.label || '', width: st.width || null, height: st.height || null, frameRate: st.frameRate || null };
+      track.addEventListener('ended', onCameraLost);
 
-      if (frameLoopId === null) { frameLoopId = requestAnimationFrame(frameLoop); }
+      if (!faceMesh) createFaceMesh();
+      if (frameLoopId === null) frameLoopId = requestAnimationFrame(frameLoop);
 
       cameraRunning = true;
-      $('cam-dot').className = 'cam-dot ok';
-      $('cam-status').textContent = 'カメラ接続中 — 顔を正面に向けてください';
+      setStatus('ok', 'カメラ接続中 — 顔を正面に向けてください');
       document.body.classList.add('cam-on');
-
+      refreshCameraList();
       toast('カメラ起動完了');
       onCameraReady();
-    } catch(err) {
+    } catch (err) {
       alert('カメラへのアクセスが拒否されました。\nブラウザの設定でカメラ許可を有効にしてください。');
       $('btn-camera-start').disabled = false;
     }
   }
 
-  // ── 目の位置（顔検出）を再検出する ──────────────────────────
-  // 注意: フレーム送信ループ(frameLoop)は止めない。stop→startすると内部でgetUserMediaが
-  // 再度呼ばれ、ブラウザの許可ダイアログが毎回表示されてしまうため、
-  // FaceMeshインスタンスのみを作り直す。
+  function onCameraReady() {
+    if (stage === 'test' && testState === 'idle') startTestFlow();
+    if (stage === 'measure') $('meas-btn-main').disabled = false;
+  }
+
+  // カメラが抜けた・使えなくなった
+  function onCameraLost() {
+    cameraRunning = false;
+    mediaStream = null;
+    video.style.display = 'none';
+    $('camera-idle').style.display = 'flex';
+    $('btn-camera-start').disabled = false;
+    document.body.classList.remove('cam-on');
+    setStatus('warn', 'カメラが切断されました');
+    if (measuring) endMeasurement('camera_lost');
+    else { toast('カメラが切断されました。もう一度起動してください', 5000); if (stage === 'test') { abortTest(); testState = 'idle'; } }
+  }
+
+  async function refreshCameraList() {
+    try {
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      const cams = devs.filter(d => d.kind === 'videoinput');
+      const sel = $('cam-select');
+      sel.textContent = '';
+      cams.forEach((c, i) => {
+        const o = document.createElement('option');
+        o.value = c.deviceId; o.textContent = c.label || `カメラ ${i + 1}`;
+        sel.appendChild(o);
+      });
+      const t = mediaStream && mediaStream.getVideoTracks()[0];
+      const cur = t && t.getSettings && t.getSettings().deviceId;
+      if (cur) sel.value = cur;
+    } catch (e) { /* 取得できなくても続行 */ }
+  }
+
+  async function switchCamera(id) {
+    if (measuring) { toast('計測中はカメラを変更できません'); refreshCameraList(); return; }
+    selectedCameraId = id;
+    if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+    mediaStream = null; cameraRunning = false;
+    video.srcObject = null;
+    resetBlinkState();
+    await startCamera();
+  }
+
+  // 目の位置（顔検出）を再検出する。frameLoopは止めず、FaceMeshだけ作り直す
   async function resetEyeTracking() {
     if (!cameraRunning) { toast('先にカメラを起動してください'); return; }
-    blinkFrames = 0; isEyeClosed = false;
+    resetBlinkState();
     try {
       if (faceMesh) { faceMesh.close(); faceMesh = null; }
-
-      faceMesh = new FaceMesh({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
-      faceMesh.setOptions({maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:.5, minTrackingConfidence:.5});
-      faceMesh.onResults(onFaceResult);
-      // frameLoopはfaceMesh変数を直接参照しているため、
-      // 上で再代入するだけで次フレームから新しいFaceMeshが使われる
-
+      createFaceMesh();
+      if (measuring) events.push({ atSec: rel(performance.now()), type: 'eye_reset' });
       toast('目の位置を再検出しました');
-    } catch(err) {
+    } catch (err) {
       toast('再検出に失敗しました — もう一度お試しください');
     }
   }
 
-
-  // ── FaceMesh結果処理 ─────────────────────────────────────────
-  function onFaceResult(results) {
-    const w = overlay.width  = video.videoWidth  || 640;
-    const h = overlay.height = video.videoHeight || 480;
-    ctx.clearRect(0, 0, w, h);
-    if (Math.abs(w / h - camAspect) > 0.01) { camAspect = w / h; fitCamera(); }
-
-    if (!results.multiFaceLandmarks?.length) {
-      trackFace(false);
-      $('cam-dot').className = 'cam-dot warn';
-      $('cam-status').textContent = '顔が検出されていません';
-      $('ear-live-val').textContent = '—';
-      return;
-    }
-    trackFace(true);
-    $('cam-dot').className = 'cam-dot ok';
-    $('cam-status').textContent = '顔を検出中 ✓';
-
-    const lm  = results.multiFaceLandmarks[0];
-    const ear = getEAR(lm);
-
-    // EARバー更新（メニュー用）
-    const earPct = Math.min(Math.max((ear - 0.10) / 0.30 * 100, 0), 100);
-    $('ear-bar').style.width = earPct + '%';
-    $('ear-bar').style.background = ear < cfg.earThreshold ? 'var(--danger)' : 'var(--ok)';
-    $('ear-live-val').textContent = ear.toFixed(3);
-
-    // 目のランドマーク描画
-    [[159,145,33,133,160,144],[386,374,362,263,387,373]].forEach(idx => {
-      idx.forEach(i => {
-        ctx.beginPath();
-        ctx.arc(lm[i].x*w, lm[i].y*h, 3, 0, Math.PI*2);
-        ctx.fillStyle = ear < cfg.earThreshold ? 'rgba(255,45,85,.8)' : 'rgba(0,240,255,.7)';
-        ctx.fill();
-      });
-    });
-
-    // 瞬き検出
-    if (ear < cfg.earThreshold) {
-      blinkFrames++;
-      isEyeClosed = true;
-    } else {
-      if (isEyeClosed && blinkFrames >= cfg.minFrames) {
-        // 瞬き確定
-        onBlinkDetected();
-      }
-      blinkFrames = 0;
-      isEyeClosed = false;
-    }
-  }
-
   // ── カメラ枠を「空き領域に収まる最大サイズ」にする（スクロールさせない）──
-  let camAspect = 4 / 3;
   function fitCamera() {
     const wrap = $('cam-wrap'), card = $('camera-card');
     const W = wrap.clientWidth, H = wrap.clientHeight;
@@ -803,89 +1063,218 @@
   window.addEventListener('resize', fitCamera);
   fitCamera();
 
-  // 送信先の設定状況を最初の画面に表示（設定ミスの確認用）
-  $('upload-status').textContent = UPLOAD_URL
-    ? '// データ送信: 設定済み（計測終了時にGoogleへ送信）'
-    : '// データ送信: 未設定（計測終了時にこのPCへ保存）';
-
-  // ============================================================
-  //  画面遷移 / しきい値
-  // ============================================================
-  let stage = 'welcome';          // 'welcome' | 'input' | 'test' | 'measure'
-  let thresholdSource = null;     // 'test' | 'manual'
-
-  function setStage(s) { stage = s; document.body.dataset.stage = s; }
-
-  // メニューのスライダー経由でcfgと表示を同期する
-  function setThreshold(v) {
-    const s = $('ear-slider');
-    s.value = v;
-    s.dispatchEvent(new Event('input'));
+  // ── 状態表示（カメラ枠の下部バー）──────────────────────────────
+  let lastStatus = '';
+  function setStatus(cls, text) {
+    const key = cls + '|' + text;
+    if (key === lastStatus) return;
+    lastStatus = key;
+    $('cam-dot').className = 'cam-dot ' + cls;
+    $('cam-status').textContent = text;
   }
 
-  function onBlinkDetected() {
-    if (stage === 'test') {
-      if (testState === 'running') testCount++;
-    } else if (stage === 'measure' && measuring) {
-      blinkTimes.push(secSince(Date.now()));
+  // ============================================================
+  //  フレームごとの処理
+  // ============================================================
+  let lastFrameAt = 0, prevFrameT = 0;
+  let fpsWinStart = 0, fpsWinCount = 0, liveFps = 0;
+  let brightness = null;
+  let liveEar = null, liveFaceW = null;
+
+  function trackFps(t) {
+    fpsWinCount++;
+    if (!fpsWinStart) fpsWinStart = t;
+    if (t - fpsWinStart >= 1000) {
+      liveFps = fpsWinCount * 1000 / (t - fpsWinStart);
+      if (measuring) {
+        quality.fpsSum += liveFps; quality.fpsN++;
+        quality.fpsMin = Math.min(quality.fpsMin, liveFps);
+        if (liveFps < GUIDE.lowFps) quality.lowFpsSec++;
+      }
+      fpsWinStart = t; fpsWinCount = 0;
+      updateAdminReadout();
     }
   }
 
-  function onCameraReady() {
-    if (stage === 'test' && testState === 'idle') startTestFlow();
-    if (stage === 'measure') $('meas-btn-main').disabled = false;
+  const GUIDE_MSG = {
+    dark:      '部屋が暗いようです。明るくしてください',
+    tooFar:    '顔が遠すぎます。少し近づいてください',
+    tooClose:  '顔が近すぎます。少し離れてください',
+    offCenter: '顔が画面の端にあります。中央に寄ってください',
+  };
+  function guideState(fw, cx, cy) {
+    if (brightness !== null && brightness < GUIDE.dark) return 'dark';
+    if (fw < GUIDE.farFace) return 'tooFar';
+    if (fw > GUIDE.nearFace) return 'tooClose';
+    if (Math.abs(cx - .5) > GUIDE.edgeX || cy < GUIDE.edgeYlo || cy > GUIDE.edgeYhi) return 'offCenter';
+    return null;
+  }
+
+  function onFaceResult(results) {
+    const t = performance.now();
+    const gap = prevFrameT ? t - prevFrameT : 0;
+    const dt = Math.min(gap, 500) / 1000;
+    lastFrameAt = t;
+    trackFps(t);
+    if (measuring) quality.frames++;
+    if (gap > 500) resetBlinkState();                       // 処理が止まった前後をまたいで瞬きを数えない
+    if (measuring && gap > STALL.noteMs) events.push({ atSec: rel(prevFrameT), type: 'frame_stall', durationSec: r3(gap / 1000) });
+    prevFrameT = t;
+
+    const showVideo = !(measuring && previewHidden());
+    const w = overlay.width  = video.videoWidth  || 640;
+    const h = overlay.height = video.videoHeight || 480;
+    ctx.clearRect(0, 0, w, h);
+    if (Math.abs(w / h - camAspect) > 0.01) { camAspect = w / h; fitCamera(); }
+
+    if (!results.multiFaceLandmarks?.length) {
+      trackFace(false, t);
+      resetBlinkState();                                   // 顔が消えた間に目が閉じた扱いのままにしない
+      liveEar = null; liveFaceW = null;
+      setStatus('warn', '顔が検出されていません');
+      if (ADMIN) $('ear-live-val').textContent = '—';
+      return;
+    }
+    trackFace(true, t);
+
+    const lm = results.multiFaceLandmarks[0];
+    const e  = getEARs(lm);
+    liveEar = e.avg;
+
+    // 顔の大きさ・位置（遠さ・近さ・端寄りの目安）
+    const fw = Math.abs(lm[454].x - lm[234].x);
+    const cx = (lm[454].x + lm[234].x) / 2, cy = lm[1].y;
+    liveFaceW = fw;
+    const g = guideState(fw, cx, cy);
+
+    if (measuring) {
+      quality.earRSum += e.r; quality.earLSum += e.l; quality.earN++;
+      quality.fwSum += fw; quality.fwN++; quality.fwMin = Math.min(quality.fwMin, fw); quality.fwMax = Math.max(quality.fwMax, fw);
+      if (g) quality.warn[g] += dt;
+    }
+
+    if (g) setStatus('warn', GUIDE_MSG[g]);
+    else if (liveFps && liveFps < GUIDE.lowFps) setStatus('warn', `処理が遅くなっています（${Math.round(liveFps)}fps）`);
+    else setStatus('ok', '顔を検出中 ✓');
+
+    if (ADMIN) {
+      const earPct = Math.min(Math.max((e.avg - 0.10) / 0.30 * 100, 0), 100);
+      $('ear-bar').style.width = earPct + '%';
+      $('ear-bar').style.background = e.avg < cfg.earThreshold ? 'var(--danger)' : 'var(--ok)';
+      $('ear-live-val').textContent = e.avg.toFixed(3);
+    }
+
+    if (showVideo) {
+      [[159,145,33,133,160,144],[386,374,362,263,387,373]].forEach(idx => {
+        idx.forEach(i => {
+          ctx.beginPath();
+          ctx.arc(lm[i].x * w, lm[i].y * h, 3, 0, Math.PI * 2);
+          ctx.fillStyle = e.avg < cfg.earThreshold ? 'rgba(255,45,85,.8)' : 'rgba(0,240,255,.7)';
+          ctx.fill();
+        });
+      });
+    }
+
+    processEar(t, e);
+  }
+
+  // 映像の明るさを1秒おきに軽くサンプリング（16x12px）
+  const bCanvas = document.createElement('canvas'); bCanvas.width = 16; bCanvas.height = 12;
+  const bCtx = bCanvas.getContext('2d', { willReadFrequently: true });
+  setInterval(() => {
+    if (!cameraRunning || video.readyState < 2 || (stage !== 'test' && stage !== 'measure')) return;
+    try {
+      bCtx.drawImage(video, 0, 0, 16, 12);
+      const d = bCtx.getImageData(0, 0, 16, 12).data;
+      let s = 0;
+      for (let i = 0; i < d.length; i += 4) s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      brightness = s / (d.length / 4);
+      if (measuring) {
+        quality.brSum += brightness; quality.brN++;
+        quality.brMin = Math.min(quality.brMin, brightness); quality.brMax = Math.max(quality.brMax, brightness);
+      }
+    } catch (e) { /* 取得できなくても続行 */ }
+  }, 1000);
+
+  // ============================================================
+  //  瞬き検出（ヒステリシス＋ミリ秒基準＋最短間隔）
+  // ============================================================
+  let eyeClosed = false, closeStartT = 0, ep = null, lastBlinkEndT = -1e9;
+  function resetBlinkState() { eyeClosed = false; ep = null; }
+
+  function processEar(t, e) {
+    if (!eyeClosed) {
+      if (e.avg < cfg.earThreshold) {
+        eyeClosed = true; closeStartT = t;
+        ep = { min: e.avg, minR: e.r, minL: e.l };
+      }
+      return;
+    }
+    // 閉じている間：最小値を更新
+    if (e.avg < ep.min) { ep.min = e.avg; ep.minR = e.r; ep.minL = e.l; }
+    // 開いた判定は、しきい値より少し高い値まで戻ったとき（細かい揺れで2回に数えないため）
+    if (e.avg > cfg.earThreshold + DET.hysteresis) {
+      const durMs = t - closeStartT;
+      eyeClosed = false;
+      if (durMs >= cfg.minClosedMs && (closeStartT - lastBlinkEndT) >= DET.minIntervalMs) {
+        lastBlinkEndT = t;
+        onBlink({ startT: closeStartT, endT: t, durMs, minEar: ep.min, minR: ep.minR, minL: ep.minL });
+      }
+      ep = null;
+    }
+  }
+
+  function onBlink(b) {
+    if (stage === 'test') { if (testState === 'running') testCount++; return; }
+    if (stage === 'measure' && measuring) {
+      if (b.startT < measStartPerf) return;
+      blinks.push({
+        n: blinks.length + 1,
+        startSec: rel(b.startT),               // 目を閉じ始めた時刻（計測開始から何秒後か）
+        endSec: rel(b.endT),                   // 目が開いた時刻
+        durationMs: Math.round(b.durMs),       // 閉じていた時間
+        minEar: r3(b.minEar), minEarRight: r3(b.minR), minEarLeft: r3(b.minL),
+        activity: activityLog.length - 1,      // activityLog の何番目の活動中か
+        state: evLog.break.open ? 'break' : (evLog.away.open ? 'away' : ''),
+      });
+      updateAdminReadout();
+    }
   }
 
   // ============================================================
   //  しきい値テスト
   // ============================================================
-  const TEST = {
-    start: 0.10,        // テスト開始しきい値
-    step: 0.10,         // 5回未満のときの加算量
-    max: 0.40,          // 上限（これ以上は上げない）
-    target: 5,          // 瞬きしてもらう回数
-    countdownSec: 3,    // 開始前カウントダウン
-    autoJudgeSec: 20,   // 「判定する」が押されない場合の自動判定
-    pauseMs: 3000,      // 結果表示→次のテストまでの待ち時間
-  };
-  let testThr = TEST.start;
-  let testState = 'idle';   // 'idle' | 'countdown' | 'running' | 'judging' | 'done'
-  let testCount = 0;
-  let testTimers = [];
-  // 探索の記録：testLo=5回未満だった最大のしきい値 / testHi=6回以上が続いた最小のしきい値
+  let testThr = TEST.start, testState = 'idle', testCount = 0, testTimers = [];
   let testLo = 0, testHi = Infinity, testOverStreak = 0;
-  const r2 = x => Math.round(x * 100) / 100;
+  let testMode = 'full', testStart = TEST.start, testStep = TEST.step;
+  let testTrials = [], testInfo = null;
+  let thresholdSource = null;   // 'test' | 'confirm_test' | 'manual'
 
-  function clearTestTimers() {
-    testTimers.forEach(t => { clearTimeout(t); clearInterval(t); });
-    testTimers = [];
+  function clearTestTimers() { testTimers.forEach(t => { clearTimeout(t); clearInterval(t); }); testTimers = []; }
+  function showTestView(v) {
+    $('test-run').style.display  = v === 'run'  ? 'block' : 'none';
+    $('test-done').style.display = v === 'done' ? 'block' : 'none';
   }
 
-  function showTestView(view) {   // 'run' | 'done'
-    $('test-run').style.display  = view === 'run'  ? 'block' : 'none';
-    $('test-done').style.display = view === 'done' ? 'block' : 'none';
-  }
-
-  function enterTest() {
+  function enterTest(startThr = TEST.start, mode = 'full') {
     setStage('test');
     clearTestTimers();
     testState = 'idle';
+    testMode = mode;
+    testStart = Math.min(TEST.max, Math.max(0.05, r2(startThr)));
+    testStep = mode === 'confirm' ? TEST.confirmStep : TEST.step;
     showTestView('run');
-    $('test-thr-val').textContent = TEST.start.toFixed(2);
+    $('test-thr-val').textContent = testStart.toFixed(2);
     $('test-msg').textContent = 'カメラを起動しています…';
     $('test-sub').textContent = '';
     $('btn-test-judge').disabled = true;
     if (cameraRunning) startTestFlow(); else startCamera();
   }
-
-  function abortTest() {
-    clearTestTimers();
-    testState = 'idle';
-  }
+  function abortTest() { clearTestTimers(); testState = 'idle'; }
 
   function startTestFlow() {
-    testThr = TEST.start;
-    testLo = 0; testHi = Infinity; testOverStreak = 0;
+    testThr = testStart;
+    testLo = 0; testHi = Infinity; testOverStreak = 0; testTrials = [];
     showTestView('run');
     runTrial();
   }
@@ -895,9 +1284,8 @@
     setThreshold(testThr);
     $('test-thr-val').textContent = testThr.toFixed(2);
     testState = 'countdown';
-    testCount = 0; blinkFrames = 0; isEyeClosed = false;
+    testCount = 0; resetBlinkState();
     $('btn-test-judge').disabled = true;
-
     let n = TEST.countdownSec;
     const tick = () => {
       if (n > 0) {
@@ -907,7 +1295,7 @@
         testTimers.push(setTimeout(tick, 1000));
       } else {
         testState = 'running';
-        testCount = 0; blinkFrames = 0; isEyeClosed = false;
+        testCount = 0; resetBlinkState();
         $('test-msg').textContent = `${TEST.target}回 瞬きしてください`;
         $('test-sub').textContent = `瞬きし終わったら「判定する」ボタンか Space キーを押してください（${TEST.autoJudgeSec}秒で自動判定）`;
         $('btn-test-judge').disabled = false;
@@ -924,17 +1312,18 @@
     $('btn-test-judge').disabled = true;
 
     const c = testCount;
-    if (c === TEST.target) { finishTest(); return; }
+    const trial = { trial: testTrials.length + 1, threshold: testThr, detected: c, outcome: '' };
+    testTrials.push(trial);
+    if (c === TEST.target) { trial.outcome = 'success'; finishTest(); return; }
 
     let next = testThr, detail;
     if (c < TEST.target) {
-      // 5回未満：しきい値が低すぎる
+      trial.outcome = 'under';                              // 5回未満：しきい値が低すぎる
       testOverStreak = 0;
       testLo = Math.max(testLo, testThr);
-      if (testLo >= testHi) testHi = Infinity;          // 食い違った古い記録は捨てる
+      if (testLo >= testHi) testHi = Infinity;               // 食い違った古い記録は捨てる
       if (isFinite(testHi)) {
-        // 「高すぎた値」が分かっているときは、その手前の間を少しずつ探す
-        const mid = r2((testLo + testHi) / 2);
+        const mid = r2((testLo + testHi) / 2);               // 「高すぎた値」との間を少しずつ探す
         if (mid > testLo && mid < testHi) {
           next = mid;
           detail = `${TEST.target}回未満でした。しきい値を ${next.toFixed(2)} に少し上げてもう一度テストします`;
@@ -944,24 +1333,23 @@
       } else if (testThr >= TEST.max) {
         detail = `しきい値が上限（${TEST.max.toFixed(2)}）のため、同じ値でもう一度テストします。顔の向きや明るさを確認してください`;
       } else {
-        next = r2(testThr + TEST.step);
+        next = Math.min(TEST.max, r2(testThr + testStep));
         detail = `${TEST.target}回未満でした。しきい値を ${next.toFixed(2)} に上げてもう一度テストします`;
       }
     } else {
-      // 6回以上：1回目は同じ値でやり直し、2回続いたらしきい値が高すぎると判断して少し下げる
+      trial.outcome = 'over';                               // 6回以上：1回目は同じ値でやり直し、2回続いたら下げる
       testOverStreak++;
       if (testOverStreak < 2) {
         detail = `${TEST.target + 1}回以上検出しました。同じしきい値 ${testThr.toFixed(2)} でもう一度テストします`;
       } else {
         testOverStreak = 0;
         testHi = Math.min(testHi, testThr);
-        if (testLo >= testHi) testLo = 0;               // 食い違った古い記録は捨てる
+        if (testLo >= testHi) testLo = 0;
         if (testLo > 0) {
-          // 5回未満だった値と、6回以上が続いた値のちょうど中間へ
           const mid = r2((testLo + testHi) / 2);
           next = (mid > testLo && mid < testHi) ? mid : testThr;
         } else {
-          next = Math.max(0.05, r2(testThr - 0.02));    // 目安がないときは0.02ずつ下げる
+          next = Math.max(0.05, r2(testThr - 0.02));
         }
         detail = next < testThr
           ? `${TEST.target + 1}回以上が続いたため、しきい値が高すぎるようです。${next.toFixed(2)} に下げてもう一度テストします`
@@ -975,179 +1363,427 @@
 
   function finishTest() {
     testState = 'done';
-    thresholdSource = 'test';
+    thresholdSource = testMode === 'confirm' ? 'confirm_test' : 'test';
+    testInfo = { mode: testMode, startThreshold: testStart, finalThreshold: testThr, trials: testTrials.slice() };
     $('test-result-thr').textContent = testThr.toFixed(2);
     showTestView('done');
   }
 
   // ============================================================
-  //  しきい値入力（2回目以降）
+  //  しきい値の入力（2回目以降）／この端末への記録
   // ============================================================
   const THR_MIN = 0.05, THR_MAX = 0.60;
 
+  function loadSavedThreshold() {
+    const id = $('p-id').value.trim();
+    const byId = store.get(THR_BY_ID_KEY, {});
+    if (id && byId[id]) return { value: byId[id].value, label: `ID「${id}」の前回の値` };
+    const last = store.get(LAST_THR_KEY, null);
+    if (last && typeof last.value === 'number') return { value: last.value, label: 'この端末で前回使った値' };
+    return null;
+  }
+  function saveThreshold() {
+    const rec = { value: cfg.earThreshold, at: new Date().toISOString() };
+    store.set(LAST_THR_KEY, rec);
+    const id = $('p-id').value.trim();
+    if (id) { const m = store.get(THR_BY_ID_KEY, {}); m[id] = rec; store.set(THR_BY_ID_KEY, m); }
+  }
+  function openInput() {
+    testInfo = null;
+    const s = loadSavedThreshold();
+    const v = s ? s.value : 0.20;
+    $('thr-number').value = v.toFixed(2);
+    $('thr-range').value = v;
+    $('thr-hint').textContent = s ? `${s.label}：${v.toFixed(2)}（違う場合は書き換えてください）` : '';
+    setStage('input');
+  }
+  function readInputThreshold() {
+    const v = parseFloat($('thr-number').value);
+    if (isNaN(v) || v < THR_MIN || v > THR_MAX) {
+      toast(`しきい値は ${THR_MIN.toFixed(2)}〜${THR_MAX.toFixed(2)} の範囲で入力してください`);
+      return null;
+    }
+    return v;
+  }
   $('thr-number').addEventListener('input', e => {
     const v = parseFloat(e.target.value);
     if (!isNaN(v) && v >= THR_MIN && v <= THR_MAX) $('thr-range').value = v;
   });
-  $('thr-range').addEventListener('input', e => {
-    $('thr-number').value = (+e.target.value).toFixed(2);
-  });
+  $('thr-range').addEventListener('input', e => { $('thr-number').value = (+e.target.value).toFixed(2); });
+
+  // ============================================================
+  //  活動の選択
+  // ============================================================
+  let activity = { category: '', genre: '', gameName: '', detail: '' };
+  let actDraft = null;
+  $('act-genre').innerHTML = GENRES.map(g => `<option>${g}</option>`).join('');
+
+  function activityLabel(a) {
+    if (!a.category) return '未選択';
+    let s = a.category;
+    if (a.category === 'ゲーム') { if (a.genre) s += ' / ' + a.genre; if (a.gameName) s += ' / ' + a.gameName; }
+    if (a.category === 'その他' && a.detail) s += ' / ' + a.detail;
+    return s;
+  }
+  function updateActivityBtn() {
+    const b = $('btn-activity');
+    b.textContent = activity.category ? `活動：${activityLabel(activity)} ▸ 変更` : '活動：未選択 ▸ 選ぶ';
+    b.classList.toggle('unset', !activity.category);
+  }
+  function renderActDraft() {
+    document.querySelectorAll('#act-cats .chip').forEach(c => c.classList.toggle('active', c.dataset.cat === actDraft.category));
+    $('act-game-box').style.display  = actDraft.category === 'ゲーム' ? 'block' : 'none';
+    $('act-other-box').style.display = actDraft.category === 'その他' ? 'block' : 'none';
+    $('btn-act-ok').disabled = !actDraft.category;
+  }
+  function openActivity() {
+    actDraft = { ...activity };
+    if (!actDraft.genre) actDraft.genre = GENRES[0];
+    $('act-genre').value = actDraft.genre;
+    $('act-game').value = actDraft.gameName;
+    $('act-detail').value = actDraft.detail;
+    renderActDraft();
+    $('modal-activity').classList.add('show');
+  }
+  function applyActivity() {
+    const a = { category: actDraft.category, genre: '', gameName: '', detail: '' };
+    if (a.category === 'ゲーム') { a.genre = $('act-genre').value; a.gameName = $('act-game').value.trim(); }
+    if (a.category === 'その他') a.detail = $('act-detail').value.trim();
+    const changed = activityLabel(a) !== activityLabel(activity);
+    activity = a;
+    updateActivityBtn();
+    $('modal-activity').classList.remove('show');
+    if (measuring && changed) {
+      activityLog.push({ atSec: rel(performance.now()), ...a, label: activityLabel(a) });
+      toast('活動の切り替えを記録しました');
+    }
+  }
+  document.querySelectorAll('#act-cats .chip').forEach(c => c.addEventListener('click', () => {
+    actDraft.category = c.dataset.cat; renderActDraft();
+  }));
 
   // ============================================================
   //  計測
   // ============================================================
-  let measuring = false, measStart = null, measTimer = null;
-  let blinkTimes = [];
+  let measuring = false, measStartPerf = 0, measStartWall = 0, measTimer = null, sessionId = '';
+  let blinks = [], undetectedIntervals = [], lostSincePerf = null;
+  let events = [], activityLog = [], thresholdChanges = [], lastLoggedThr = 0;
+  let plannedSec = null, quality = newQuality(), lastOp = null;
+  let consentInfo = null;
   const evLog = { break: { list: [], open: null }, away: { list: [], open: null } };
   const EV_UI = {
     break: { btn: 'meas-btn-break', label: 'label-break', name: '休憩', on: '休憩終了', off: '休憩開始' },
     away:  { btn: 'meas-btn-away',  label: 'label-away',  name: '離席', on: '離席終了', off: '離席開始' },
   };
 
-  const secSince = t => Number(((t - measStart) / 1000).toFixed(3));
+  // performance.now()の時刻 → 「計測開始から何秒後か」（小数第3位＝ミリ秒）
+  const rel = t => r3((t - measStartPerf) / 1000);
+  const isoAt = t => new Date(measStartWall + (t - measStartPerf)).toISOString();
+  const previewHidden = () => $('opt-hide-preview').checked;
 
-  // ── 顔（目）を検出できていなかった区間の記録 ──────────────
-  // 顔が LOST_MIN_MS 以上連続で見えなかった区間だけを「未検出」として数える
-  const LOST_MIN_MS = 300;
-  let lostSince = null;
-  let undetectedIntervals = [];
-
-  function closeLost(now) {
-    if (lostSince !== null && now - lostSince >= LOST_MIN_MS) {
-      const startSec = secSince(lostSince), endSec = secSince(now);
-      undetectedIntervals.push({ startSec, endSec, durationSec: Number((endSec - startSec).toFixed(3)) });
-    }
-    lostSince = null;
+  function newQuality() {
+    return { frames: 0, fpsSum: 0, fpsN: 0, fpsMin: Infinity, lowFpsSec: 0,
+             earRSum: 0, earLSum: 0, earN: 0, fwSum: 0, fwMin: Infinity, fwMax: 0, fwN: 0,
+             brSum: 0, brN: 0, brMin: Infinity, brMax: 0,
+             warn: { tooFar: 0, tooClose: 0, offCenter: 0, dark: 0 } };
   }
-  function trackFace(found) {
+
+  // 顔（目）を検出できていなかった区間の記録
+  function closeLost(t) {
+    if (lostSincePerf !== null && t - lostSincePerf >= LOST_MIN_MS) {
+      const startSec = rel(lostSincePerf), endSec = rel(t);
+      undetectedIntervals.push({ startSec, endSec, durationSec: r3(endSec - startSec) });
+    }
+    lostSincePerf = null;
+  }
+  function trackFace(found, t) {
     if (stage !== 'measure' || !measuring) return;
-    const now = Date.now();
-    if (!found) { if (lostSince === null) lostSince = now; }
-    else if (lostSince !== null) closeLost(now);
+    if (!found) { if (lostSincePerf === null) lostSincePerf = t; }
+    else if (lostSincePerf !== null) closeLost(t);
+  }
+
+  let audioCtx = null;
+  function ensureAudio() {
+    try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch (e) {}
+  }
+  function beep() {
+    if (!audioCtx) return;
+    [0, 0.35, 0.7].forEach(d => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = 880; g.gain.value = 0.15;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(audioCtx.currentTime + d); o.stop(audioCtx.currentTime + d + 0.2);
+    });
   }
 
   function enterMeasure() {
+    saveThreshold();
     setStage('measure');
     $('meas-thr').textContent = cfg.earThreshold.toFixed(2);
+    updateActivityBtn();
     $('meas-btn-main').disabled = !cameraRunning;
     if (!cameraRunning) startCamera();
   }
 
+  function updateAdminReadout() {
+    if (!ADMIN) return;
+    $('admin-readout').textContent =
+      `瞬き ${blinks.length} ／ EAR ${liveEar === null ? '—' : liveEar.toFixed(3)} ／ ${Math.round(liveFps)}fps ／ 顔幅 ${liveFaceW === null ? '—' : Math.round(liveFaceW * 100) + '%'}`;
+  }
+
+  function makeSessionId(ms) {
+    const d = new Date(ms);
+    return `mabataki_data_${d.getFullYear()}_${p2(d.getMonth() + 1)}_${p2(d.getDate())}_${p2(d.getHours())}_${p2(d.getMinutes())}_${p2(d.getSeconds())}_${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+  }
+
   function startMeasure() {
     if (!cameraRunning) { toast('先にカメラを起動してください'); return; }
+    ensureAudio();
     measuring = true;
-    measStart = Date.now();
-    blinkTimes = [];
-    lostSince = null; undetectedIntervals = [];
-    blinkFrames = 0; isEyeClosed = false;
-    evLog.break = { list: [], open: null };
-    evLog.away  = { list: [], open: null };
+    measStartPerf = performance.now(); measStartWall = Date.now();
+    sessionId = makeSessionId(measStartWall);
+    blinks = []; undetectedIntervals = []; lostSincePerf = null;
+    events = []; thresholdChanges = []; lastLoggedThr = cfg.earThreshold;
+    quality = newQuality(); lastOp = null;
+    evLog.break = { list: [], open: null }; evLog.away = { list: [], open: null };
+    activityLog = [{ atSec: 0, ...activity, label: activityLabel(activity) }];
+    resetBlinkState(); lastBlinkEndT = -1e9;
+    lastFrameAt = measStartPerf; prevFrameT = 0;
+    const pm = parseFloat($('opt-planned').value);
+    plannedSec = (!isNaN(pm) && pm > 0) ? Math.round(pm * 60) : null;
 
     $('meas-btn-main').classList.add('measuring');
     $('label-main').textContent = '計測終了';
     $('meas-btn-break').disabled = false;
     $('meas-btn-away').disabled  = false;
     $('btn-back-start').disabled = true;
+    $('cam-select').disabled = true;
+    $('camera-card').classList.toggle('preview-hidden', previewHidden());
 
     measTimer = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - measStart) / 1000);
-      $('timer-main').textContent =
-        String(Math.floor(elapsed / 60)).padStart(2, '0') + ':' + String(elapsed % 60).padStart(2, '0');
+      const el = (performance.now() - measStartPerf) / 1000, s = Math.floor(el);
+      $('timer-main').textContent = p2(Math.floor(s / 60)) + ':' + p2(s % 60);
+      if (plannedSec && el >= plannedSec) { beep(); endMeasurement('scheduled'); }
     }, 500);
 
-    toast('計測開始');
+    if (!activity.category) toast('計測開始（活動は「未選択」で記録されます）', 3500);
+    else toast('計測開始');
+    if (UPLOAD_URL && !navigator.onLine) toast('ネットワークに接続されていません。計測は続けられますが、送信は後で行われます', 6000);
   }
 
-  function resetEventUI(kind) {
-    const ui = EV_UI[kind];
-    $(ui.btn).classList.remove('measuring');
-    $(ui.label).textContent = ui.off;
-  }
-
-  function closeEvent(kind, now, auto) {
-    const log = evLog[kind];
-    const rec = { ...log.open, endedAt: new Date(now).toISOString(), endSec: secSince(now) };
-    rec.durationSec = Number((rec.endSec - rec.startSec).toFixed(3));
-    if (auto) rec.closedByMeasurementEnd = true;
-    log.list.push(rec);
-    log.open = null;
-    resetEventUI(kind);
-  }
-
-  // 休憩・離席：1回目で開始、2回目で終了を記録（効果はJSONへの記録のみ）
-  function toggleEvent(kind) {
-    if (!measuring) return;
-    const log = evLog[kind], ui = EV_UI[kind], now = Date.now();
-    if (log.open === null) {
-      log.open = { startedAt: new Date(now).toISOString(), startSec: secSince(now) };
-      $(ui.btn).classList.add('measuring');
-      $(ui.label).textContent = ui.on;
-      toast(`${ui.name}開始を記録`);
-    } else {
-      closeEvent(kind, now, false);
-      toast(`${ui.name}終了を記録`);
-    }
-  }
-
-  function stopMeasure() {
-    const now = Date.now();
-    ['break', 'away'].forEach(k => { if (evLog[k].open) closeEvent(k, now, true); });
-    closeLost(now);
-    clearInterval(measTimer);
-    measuring = false;
-
-    const durSec = Number(((now - measStart) / 1000).toFixed(3));
-    const undetSec = Number(undetectedIntervals.reduce((a, x) => a + x.durationSec, 0).toFixed(3));
-    const detSec = Number((durSec - undetSec).toFixed(3));   // 顔を検出できていた時間
-    const d = new Date(now);
-    const p2 = n => String(n).padStart(2, '0');
-    const filename = `mabataki_data_${p2(d.getMonth() + 1)}_${p2(d.getDate())}_${p2(d.getHours())}_${p2(d.getMinutes())}_${p2(d.getSeconds())}_${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}.json`;
-
-    const data = {
-      savedAt: d.toISOString(),
-      earThreshold: cfg.earThreshold,
-      thresholdSource,                       // 'test' = テストで決定 / 'manual' = 手入力
-      minFrames: cfg.minFrames,
-      measurement: {
-        startedAt: new Date(measStart).toISOString(),
-        endedAt: d.toISOString(),
-        durationSec: durSec,                 // 計測開始〜終了の全時間
-        detectedDurationSec: detSec,         // うち、顔(目)を検出できていた時間
-        undetectedDurationSec: undetSec,     // 検出できていなかった時間の合計
-        undetectedIntervals,                 // 検出できなかった区間（開始・終了：計測開始からの秒）
-        blinkCount: blinkTimes.length,
-        blinksPerMinute: durSec > 0 ? Number((blinkTimes.length / (durSec / 60)).toFixed(2)) : null,
-        blinksPerMinuteDetected: detSec > 0 ? Number((blinkTimes.length / (detSec / 60)).toFixed(2)) : null,  // 検出時間だけで割った値
-        // 瞬き1回ごとの時刻：計測開始から何秒後か（小数第3位＝ミリ秒まで）
-        blinkTimestampsSec: blinkTimes,
-      },
-      breaks: evLog.break.list,              // 休憩の開始・終了
-      aways: evLog.away.list,                // 離席の開始・終了
-    };
-    // UIを計測前の状態に戻す
+  function resetMeasureUI() {
     $('meas-btn-main').classList.remove('measuring');
     $('label-main').textContent = '計測開始';
     $('timer-main').textContent = '00:00';
     $('meas-btn-break').disabled = true;
     $('meas-btn-away').disabled  = true;
+    ['break', 'away'].forEach(k => { $(EV_UI[k].btn).classList.remove('measuring'); $(EV_UI[k].label).textContent = EV_UI[k].off; });
     $('btn-back-start').disabled = false;
+    $('cam-select').disabled = false;
+    $('camera-card').classList.remove('preview-hidden');
+    $('modal-confirm').classList.remove('show');
+  }
 
-    // 送信（失敗時はこのPCに保存）。送信中は操作できないようにする
-    $('meas-btn-main').disabled = true;
-    $('btn-back-start').disabled = true;
-    deliverData(data, filename).finally(() => {
-      $('meas-btn-main').disabled = !cameraRunning;
-      $('btn-back-start').disabled = false;
+  // 休憩・離席：1回目で開始、2回目で終了を記録（効果はJSONへの記録のみ）
+  function toggleEvent(kind) {
+    if (!measuring) return;
+    const log = evLog[kind], ui = EV_UI[kind], t = performance.now();
+    if (log.open === null) {
+      log.open = { startedAt: isoAt(t), startSec: rel(t) };
+      lastOp = { kind, type: 'start' };
+      $(ui.btn).classList.add('measuring'); $(ui.label).textContent = ui.on;
+      toast(`${ui.name}開始を記録`, 6000, { label: '取り消す', fn: undoEvent });
+    } else {
+      const rec = { ...log.open, endedAt: isoAt(t), endSec: rel(t) };
+      rec.durationSec = r3(rec.endSec - rec.startSec);
+      log.list.push(rec); log.open = null;
+      lastOp = { kind, type: 'end', rec };
+      $(ui.btn).classList.remove('measuring'); $(ui.label).textContent = ui.off;
+      toast(`${ui.name}終了を記録`, 6000, { label: '取り消す', fn: undoEvent });
+    }
+  }
+  // 押し間違いの取り消し（直前の1操作だけ）
+  function undoEvent() {
+    if (!measuring || !lastOp) return;
+    const { kind, type, rec } = lastOp, log = evLog[kind], ui = EV_UI[kind];
+    if (type === 'start') {
+      log.open = null;
+      $(ui.btn).classList.remove('measuring'); $(ui.label).textContent = ui.off;
+      events.push({ atSec: rel(performance.now()), type: 'undo', detail: `${ui.name}開始` });
+      toast(`${ui.name}開始を取り消しました`);
+    } else {
+      const i = log.list.lastIndexOf(rec);
+      if (i >= 0) log.list.splice(i, 1);
+      log.open = { startedAt: rec.startedAt, startSec: rec.startSec };
+      $(ui.btn).classList.add('measuring'); $(ui.label).textContent = ui.on;
+      events.push({ atSec: rel(performance.now()), type: 'undo', detail: `${ui.name}終了` });
+      toast(`${ui.name}終了を取り消しました（${ui.name}中に戻りました）`);
+    }
+    lastOp = null;
+  }
+
+  // ── 記録するデータを組み立てる（状態は変更しない）──────────────
+  function overlap(list, a, b) {
+    let s = 0;
+    list.forEach(x => { const lo = Math.max(a, x.startSec), hi = Math.min(b, x.endSec); if (hi > lo) s += hi - lo; });
+    return s;
+  }
+  function buildData(reason, endPerf) {
+    const durSec = rel(endPerf);
+    const closedCopy = o => { const r = { ...o, endedAt: isoAt(endPerf), endSec: durSec, closedByMeasurementEnd: true }; r.durationSec = r3(r.endSec - r.startSec); return r; };
+    const breaks = evLog.break.list.concat(evLog.break.open ? [closedCopy(evLog.break.open)] : []);
+    const aways  = evLog.away.list.concat(evLog.away.open ? [closedCopy(evLog.away.open)] : []);
+    const undet  = undetectedIntervals.slice();
+    if (lostSincePerf !== null && endPerf - lostSincePerf >= LOST_MIN_MS) {
+      const s = rel(lostSincePerf);
+      undet.push({ startSec: s, endSec: durSec, durationSec: r3(durSec - s) });
+    }
+    const undetSec = r3(undet.reduce((a, x) => a + x.durationSec, 0));
+    const detSec = r3(durSec - undetSec);
+
+    const actAt = sec => { let i = 0; activityLog.forEach((a, k) => { if (a.atSec <= sec) i = k; }); return activityLog[i]; };
+    const perMinute = [];
+    for (let m = 0; m < Math.max(1, Math.ceil(durSec / 60)); m++) {
+      const a = m * 60, b = Math.min((m + 1) * 60, durSec), win = b - a;
+      if (win <= 0) continue;
+      const cnt = blinks.filter(x => x.startSec >= a && x.startSec < b).length;
+      const un = Math.min(win, overlap(undet, a, b)), det = win - un;
+      perMinute.push({ minute: m + 1, startSec: a, windowSec: r3(win), blinkCount: cnt,
+        detectedSec: r3(det), undetectedSec: r3(un),
+        breakSec: r3(overlap(breaks, a, b)), awaySec: r3(overlap(aways, a, b)),
+        blinksPerMinuteDetected: det >= 10 ? r2(cnt / (det / 60)) : null,
+        activity: actAt(a).label });
+    }
+
+    const q = quality, avg = (s, n) => n ? r3(s / n) : null, fin = v => isFinite(v) ? r3(v) : null;
+    return {
+      appVersion: APP_VERSION,
+      sessionId,
+      savedAt: new Date().toISOString(),
+      endReason: reason,    // user / scheduled / tab_hidden / stalled / camera_lost / page_closed
+      participant: { id: $('p-id').value.trim(), session: $('p-session').value.trim(), memo: $('p-memo').value.trim() },
+      consent: consentInfo,
+      environment: {
+        userAgent: navigator.userAgent,
+        platform: (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '',
+        language: navigator.language,
+        timezone: (Intl.DateTimeFormat().resolvedOptions() || {}).timeZone || '',
+        screen: { width: screen.width, height: screen.height, devicePixelRatio: window.devicePixelRatio },
+        viewport: { width: innerWidth, height: innerHeight },
+        camera: camInfo,
+        libraries: LIB_VERSIONS,
+      },
+      earThreshold: cfg.earThreshold,
+      thresholdSource,                         // test / confirm_test / manual
+      thresholdTest: thresholdSource === 'manual' ? null : testInfo,
+      thresholdChanges,                        // 計測中にしきい値を変えた記録
+      minClosedMs: cfg.minClosedMs,
+      hysteresis: DET.hysteresis,
+      minBlinkIntervalMs: DET.minIntervalMs,
+      plannedDurationSec: plannedSec,
+      cameraPreviewHidden: previewHidden(),
+      measurement: {
+        startedAt: new Date(measStartWall).toISOString(),
+        endedAt: isoAt(endPerf),
+        durationSec: durSec,                   // 計測開始〜終了の全時間
+        detectedDurationSec: detSec,           // うち、顔(目)を検出できていた時間
+        undetectedDurationSec: undetSec,
+        undetectedIntervals: undet,            // 検出できなかった区間（計測開始からの秒）
+        blinkCount: blinks.length,
+        blinksPerMinute: durSec > 0 ? r2(blinks.length / (durSec / 60)) : null,
+        blinksPerMinuteDetected: detSec > 0 ? r2(blinks.length / (detSec / 60)) : null,
+        blinkTimestampsSec: blinks.map(b => b.startSec),   // 瞬き1回ごとの「閉じ始め」時刻（ミリ秒まで）
+        blinks,                                // 瞬き1回ごとの詳細
+        perMinute,                             // 1分ごとの集計（グラフ用）
+      },
+      activityLog,
+      breaks, aways,
+      quality: {
+        frames: q.frames,
+        fps: { avg: durSec > 0 ? r2(q.frames / durSec) : null, min: fin(q.fpsMin), lowFpsSec: q.lowFpsSec },
+        earRightMean: avg(q.earRSum, q.earN), earLeftMean: avg(q.earLSum, q.earN),
+        faceWidth: { mean: avg(q.fwSum, q.fwN), min: fin(q.fwMin), max: q.fwN ? r3(q.fwMax) : null },
+        brightness: { mean: avg(q.brSum, q.brN), min: fin(q.brMin), max: q.brN ? r3(q.brMax) : null },
+        warningSec: { tooFar: r2(q.warn.tooFar), tooClose: r2(q.warn.tooClose), offCenter: r2(q.warn.offCenter), dark: r2(q.warn.dark) },
+      },
+      events,                                  // タブ非表示・処理停止・通信切断などの記録
+    };
+  }
+
+  // ── 終了処理 ─────────────────────────────────────────────────
+  const END_MSG = {
+    user:        'ご協力ありがとうございました。',
+    scheduled:   '予定の時間になったため、計測を終了しました。ご協力ありがとうございました。',
+    tab_hidden:  'ブラウザを閉じた（または、この画面が見えなくなった）ため、計測を終了しました。それまでのデータは保存されています。',
+    stalled:     '画面の処理が止まったため、計測を終了しました。それまでのデータは保存されています。',
+    camera_lost: 'カメラが切断されたため、計測を終了しました。それまでのデータは保存されています。',
+  };
+
+  function endMeasurement(reason, endPerf = performance.now()) {
+    if (!measuring) return;
+    endPerf = Math.max(endPerf, measStartPerf);
+    const data = buildData(reason, endPerf);
+    const fileName = sessionId + '.json';
+    clearInterval(measTimer);
+    measuring = false;
+    resetMeasureUI();
+
+    $('end-title').textContent = '計測が終了しました';
+    $('end-msg').textContent = END_MSG[reason] || END_MSG.user;
+    $('end-send').textContent = 'データを保存しています…';
+    $('btn-end-home').disabled = true;
+    setStage('end');
+
+    deliverData(data, fileName).then(r => {
+      $('end-send').textContent =
+        r.where === 'cloud' ? '✅ データを送信しました。' :
+        r.where === 'local' ? '✅ データをこのPCに保存しました（ダウンロードフォルダ）。' :
+        `⚠ 送信できなかったため、このPCに保存しました。次にこのアプリを開いたとき、自動で再送します。（原因: ${r.reason}）`;
+      $('btn-end-home').disabled = false;
     });
   }
 
-  // ── データの保存・送信 ───────────────────────────────────────
+  // 停止の監視：画面が見えなくなる／処理が止まったら、止まった時点で計測を終了する
+  setInterval(() => {
+    if (!measuring) return;
+    const gap = performance.now() - lastFrameAt;
+    if (document.hidden && gap >= STALL.hiddenMs) endMeasurement('tab_hidden', lastFrameAt);
+    else if (gap >= STALL.visibleMs) endMeasurement('stalled', lastFrameAt);
+  }, 1000);
+
+  document.addEventListener('visibilitychange', () => {
+    if (measuring) events.push({ atSec: rel(performance.now()), type: document.hidden ? 'tab_hidden' : 'tab_visible' });
+  });
+  window.addEventListener('offline', () => {
+    if (measuring) events.push({ atSec: rel(performance.now()), type: 'offline' });
+    toast('ネットワークが切れました。データは後で再送します', 5000);
+  });
+  window.addEventListener('online', () => {
+    if (measuring) events.push({ atSec: rel(performance.now()), type: 'online' });
+    resendPending(); checkUpload();
+  });
+
+  // 閉じる前の警告と、閉じられたときの退避
+  window.addEventListener('beforeunload', e => {
+    if (measuring) { e.preventDefault(); e.returnValue = ''; }
+  });
+  window.addEventListener('pagehide', () => {
+    if (!measuring) return;
+    const data = buildData('page_closed', performance.now());
+    const name = sessionId + '_partial.json';
+    addPending(data, name);                                   // 次回起動時に再送
+    if (UPLOAD_URL) {
+      try { navigator.sendBeacon(UPLOAD_URL, new Blob([JSON.stringify({ token: UPLOAD_TOKEN, fileName: name, data })], { type: 'text/plain' })); } catch (e) {}
+    }
+  });
+
+  // ============================================================
+  //  データの保存・送信・再送
+  // ============================================================
   function downloadLocal(data, filename) {
     const a = document.createElement('a');
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-    a.href = url;
-    a.download = filename;
-    a.click();
+    a.href = url; a.download = filename; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
@@ -1173,58 +1809,116 @@
         }
       } catch (e) {
         reason = e.name === 'AbortError' ? `${UPLOAD_TIMEOUT_MS / 1000}秒以内に応答がありませんでした` : '通信エラー: ' + e.message;
-      }
-      finally { clearTimeout(timer); }
+      } finally { clearTimeout(timer); }
     }
     console.error('送信失敗:', reason);
     return { ok: false, reason };
   }
 
   async function deliverData(data, filename) {
-    if (!UPLOAD_URL) {
-      downloadLocal(data, filename);
-      toast(`保存しました: ${filename}`);
-      return;
+    if (!UPLOAD_URL) { downloadLocal(data, filename); return { where: 'local' }; }
+    const res = await sendToServer(data, filename);
+    if (res.ok) return { where: 'cloud' };
+    downloadLocal(data, filename);
+    addPending(data, filename);
+    return { where: 'local+pending', reason: res.reason };
+  }
+
+  // 未送信データ（localStorage）
+  let resending = false;
+  const getPending = () => store.get(PENDING_KEY, []);
+  function addPending(data, fileName) {
+    const list = getPending().filter(x => x.fileName !== fileName);
+    list.push({ fileName, data });
+    while (list.length > 20) list.shift();
+    store.set(PENDING_KEY, list);
+  }
+  function updatePendingStatus(note) {
+    const n = getPending().length;
+    $('pending-status').textContent = n ? `// 未送信のデータが ${n} 件あります${note ? '（' + note + '）' : '（自動で再送します）'}` : '';
+  }
+  async function resendPending() {
+    if (!UPLOAD_URL || resending) { updatePendingStatus(); return; }
+    const list = getPending();
+    if (!list.length) { updatePendingStatus(); return; }
+    resending = true; updatePendingStatus('再送中…');
+    const remain = [];
+    for (const it of list) {
+      const r = await sendToServer(it.data, it.fileName);
+      if (!r.ok) remain.push(it);
     }
-    toast('データを送信中です…そのままお待ちください', 60000);
-    const result = await sendToServer(data, filename);
-    if (result.ok) {
-      toast('送信しました。お疲れさまでした', 5000);
-    } else {
-      downloadLocal(data, filename);
-      toast(`送信できなかったため、このPCに保存しました（原因: ${result.reason}）`, 15000);
-    }
+    const added = getPending().filter(x => !list.some(l => l.fileName === x.fileName));
+    store.set(PENDING_KEY, remain.concat(added));
+    resending = false; updatePendingStatus();
+  }
+
+  // 送信先の確認（アプリを開いたときに1回）
+  async function checkUpload() {
+    const el = $('upload-status');
+    if (!UPLOAD_URL) { el.textContent = '// データ送信: 未設定（計測終了時にこのPCへ保存）'; return; }
+    el.textContent = '// データ送信: 設定済み（接続を確認中…）';
+    const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 8000);
+    try {
+      const res = await fetch(UPLOAD_URL, { signal: ctrl.signal });
+      const txt = await res.text();
+      el.textContent = txt.includes('OK') ? '// データ送信: 設定済み（接続OK）' : '// データ送信: 設定済み（接続できません：URLと公開設定を確認）';
+    } catch (e) {
+      el.textContent = '// データ送信: 設定済み（接続できません：ネットワークまたはURLを確認）';
+    } finally { clearTimeout(timer); }
   }
 
   // ============================================================
   //  ボタン配線
   // ============================================================
+  $('consent-check').addEventListener('change', e => { $('btn-consent').disabled = !e.target.checked; });
+  $('btn-consent').addEventListener('click', () => {
+    consentInfo = { agreed: true, agreedAt: new Date().toISOString(), version: CONSENT_VERSION };
+    setStage('welcome');
+  });
+
   $('btn-camera-start').addEventListener('click', startCamera);
   $('btn-eye-reset').addEventListener('click', resetEyeTracking);
+  $('cam-select').addEventListener('change', e => switchCamera(e.target.value));
 
-  $('btn-first-yes').addEventListener('click', enterTest);
-  $('btn-first-no').addEventListener('click', () => setStage('input'));
+  $('btn-first-yes').addEventListener('click', () => enterTest());
+  $('btn-first-no').addEventListener('click', openInput);
 
   $('btn-input-back').addEventListener('click', () => setStage('welcome'));
+  $('btn-input-check').addEventListener('click', () => { const v = readInputThreshold(); if (v !== null) enterTest(v, 'confirm'); });
   $('btn-input-go').addEventListener('click', () => {
-    const v = parseFloat($('thr-number').value);
-    if (isNaN(v) || v < THR_MIN || v > THR_MAX) {
-      toast(`しきい値は ${THR_MIN.toFixed(2)}〜${THR_MAX.toFixed(2)} の範囲で入力してください`);
-      return;
-    }
-    thresholdSource = 'manual';
+    const v = readInputThreshold();
+    if (v === null) return;
+    thresholdSource = 'manual'; testInfo = null;
     setThreshold(v);
     enterMeasure();
   });
 
   $('btn-test-judge').addEventListener('click', judgeTrial);
   $('btn-test-go').addEventListener('click', enterMeasure);
-  $('btn-test-back').addEventListener('click', () => { abortTest(); setStage('welcome'); });
+  $('btn-test-back').addEventListener('click', () => { abortTest(); setStage('welcome'); resendPending(); });
 
-  $('meas-btn-main').addEventListener('click', () => { measuring ? stopMeasure() : startMeasure(); });
+  $('btn-activity').addEventListener('click', openActivity);
+  $('btn-act-cancel').addEventListener('click', () => $('modal-activity').classList.remove('show'));
+  $('btn-act-ok').addEventListener('click', applyActivity);
+
+  $('meas-btn-main').addEventListener('click', () => {
+    if (measuring) $('modal-confirm').classList.add('show'); else startMeasure();
+  });
+  $('btn-confirm-no').addEventListener('click', () => $('modal-confirm').classList.remove('show'));
+  $('btn-confirm-yes').addEventListener('click', () => endMeasurement('user'));
   $('meas-btn-break').addEventListener('click', () => toggleEvent('break'));
   $('meas-btn-away').addEventListener('click', () => toggleEvent('away'));
-  $('btn-back-start').addEventListener('click', () => { if (!measuring) setStage('welcome'); });
+  $('btn-back-start').addEventListener('click', () => { if (!measuring) { setStage('welcome'); resendPending(); } });
+
+  // 終了画面 → 最初の画面（次の人のために入力をリセット）
+  $('btn-end-home').addEventListener('click', () => {
+    ['p-id', 'p-session', 'p-memo', 'opt-planned'].forEach(id => { $(id).value = ''; });
+    activity = { category: '', genre: '', gameName: '', detail: '' };
+    updateActivityBtn();
+    thresholdSource = null; testInfo = null;
+    setStage('welcome');
+    resendPending();
+  });
 
   // ボタンをクリックした後にフォーカスを外す（Space/Enterキーでの二重動作を防ぐ）
   document.addEventListener('click', e => {
@@ -1232,87 +1926,82 @@
     if (b) b.blur();
   });
 
-  // ── キーボードショートカット（[1]=休憩 / [2]=離席 / Space=テスト中は判定・計測中は目の位置リセット）──
+  // キーボード：[1]=休憩 / [2]=離席 / Space=テスト中は判定・計測中は目の位置リセット
   document.addEventListener('keydown', e => {
     if (e.repeat) return;
     if (stage !== 'measure' && stage !== 'test') return;
+    if (document.querySelector('.modal.show')) return;
     const tag = document.activeElement && document.activeElement.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     if (stage === 'measure' && e.key === '1') toggleEvent('break');
     else if (stage === 'measure' && e.key === '2') toggleEvent('away');
     else if (e.code === 'Space') {
       e.preventDefault();
-      if (stage === 'test') judgeTrial();          // しきい値テスト：判定する
-      else resetEyeTracking();                     // 計測画面：目の位置リセット
+      if (stage === 'test') judgeTrial(); else resetEyeTracking();
     }
   });
 
-  // ── メニュー制御 ─────────────────────────────────────────────
-  const menuBtn     = $('menu-btn');
-  const menuPanel   = $('menu-panel');
-  const menuOverlay = $('menu-overlay');
-
-  function openMenu() {
-    menuBtn.classList.add('open');
-    menuPanel.classList.add('open');
-    menuOverlay.classList.add('show');
-  }
-  function closeMenu() {
-    menuBtn.classList.remove('open');
-    menuPanel.classList.remove('open');
-    menuOverlay.classList.remove('show');
-  }
-  menuBtn.addEventListener('click', () => {
-    menuPanel.classList.contains('open') ? closeMenu() : openMenu();
-  });
+  // ============================================================
+  //  メニュー
+  // ============================================================
+  const menuBtn = $('menu-btn'), menuPanel = $('menu-panel'), menuOverlay = $('menu-overlay');
+  function openMenu()  { menuBtn.classList.add('open'); menuPanel.classList.add('open'); menuOverlay.classList.add('show'); }
+  function closeMenu() { menuBtn.classList.remove('open'); menuPanel.classList.remove('open'); menuOverlay.classList.remove('show'); }
+  menuBtn.addEventListener('click', () => { menuPanel.classList.contains('open') ? closeMenu() : openMenu(); });
   menuOverlay.addEventListener('click', closeMenu);
 
-  // ── 感度ボタン ───────────────────────────────────────────────
-  const SENS_PRESETS = [
-    {ear:0.13, desc:'低め — まぶたが大きく動いたときだけ反応します'},
-    {ear:0.17, desc:'やや低め — しっかり目を閉じると反応します'},
-    {ear:0.20, desc:'標準 — 通常の瞬きで反応します'},
-    {ear:0.24, desc:'やや高め — 浅い瞬きでも反応しやすくなります'},
-    {ear:0.30, desc:'高め — 少し目を細めるだけで反応します'},
-  ];
+  // 映像を隠すオプションはこの端末に覚えておく
+  const savedHide = store.get(HIDE_KEY, null);
+  if (savedHide !== null) $('opt-hide-preview').checked = !!savedHide;
+  $('opt-hide-preview').addEventListener('change', e => {
+    store.set(HIDE_KEY, e.target.checked);
+    if (measuring) $('camera-card').classList.toggle('preview-hidden', e.target.checked);
+  });
 
+  // 感度ボタン・しきい値スライダー（管理者用）
+  const SENS_PRESETS = [
+    { ear: 0.13, desc: '低め — まぶたが大きく動いたときだけ反応します' },
+    { ear: 0.17, desc: 'やや低め — しっかり目を閉じると反応します' },
+    { ear: 0.20, desc: '標準 — 通常の瞬きで反応します' },
+    { ear: 0.24, desc: 'やや高め — 浅い瞬きでも反応しやすくなります' },
+    { ear: 0.30, desc: '高め — 少し目を細めるだけで反応します' },
+  ];
+  function logThresholdChange(v) {
+    if (measuring && v !== lastLoggedThr) {
+      thresholdChanges.push({ atSec: rel(performance.now()), from: lastLoggedThr, to: v });
+      lastLoggedThr = v;
+    }
+  }
   document.querySelectorAll('.sens-btn').forEach((btn, i) => {
     btn.addEventListener('click', () => {
       cfg.earThreshold = SENS_PRESETS[i].ear;
-      $('ear-slider').value    = cfg.earThreshold;
+      $('ear-slider').value = cfg.earThreshold;
       $('ear-val-txt').textContent = cfg.earThreshold.toFixed(2);
-      $('sens-desc').textContent   = SENS_PRESETS[i].desc;
+      $('sens-desc').textContent = SENS_PRESETS[i].desc;
       document.querySelectorAll('.sens-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      logThresholdChange(cfg.earThreshold);
     });
   });
-
   $('ear-slider').addEventListener('input', e => {
     cfg.earThreshold = +e.target.value;
     $('ear-val-txt').textContent = cfg.earThreshold.toFixed(2);
-    // 最近傍ボタンをアクティブに
     let bestIdx = 0, bestDist = Infinity;
-    SENS_PRESETS.forEach((p,i) => {
-      const d = Math.abs(p.ear - cfg.earThreshold);
-      if (d < bestDist) { bestDist=d; bestIdx=i; }
-    });
-    document.querySelectorAll('.sens-btn').forEach((b,i) => b.classList.toggle('active', i===bestIdx));
+    SENS_PRESETS.forEach((p, i) => { const d = Math.abs(p.ear - cfg.earThreshold); if (d < bestDist) { bestDist = d; bestIdx = i; } });
+    document.querySelectorAll('.sens-btn').forEach((b, i) => b.classList.toggle('active', i === bestIdx));
     $('sens-desc').textContent = SENS_PRESETS[bestIdx].desc;
   });
-
-  $('minframe-slider').addEventListener('input', e => {
-    cfg.minFrames = +e.target.value;
-    $('minframe-val').textContent = cfg.minFrames;
+  // 手動で動かして指を離したときだけ記録（テスト中の自動変更は 'change' を出さない）
+  $('ear-slider').addEventListener('change', e => logThresholdChange(+e.target.value));
+  $('minclosed-slider').addEventListener('input', e => {
+    cfg.minClosedMs = +e.target.value;
+    $('minclosed-val').textContent = cfg.minClosedMs;
   });
 
-  // ── toast ────────────────────────────────────────────────────
-  let toastTimer = null;
-  function toast(msg, ms = 2400) {
-    const el = $('toast');
-    el.textContent = msg; el.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove('show'), ms);
-  }
-  </script>
+  // ── 起動時 ───────────────────────────────────────────────────
+  checkUpload();
+  resendPending();
+
+</script>
 </body>
 </html>
