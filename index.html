@@ -58,11 +58,7 @@
     }
 
     /* ── スキャンライン ── */
-    .scanlines {
-      position: fixed; inset: 0; pointer-events: none; z-index: 9998;
-      background: repeating-linear-gradient(to bottom,
-        transparent 0px, transparent 3px, rgba(0,0,0,.06) 3px, rgba(0,0,0,.06) 4px);
-    }
+    .scanlines { display: none; }
 
     /* ──────────────────── MENU SIDEBAR ──────────────────── */
     #menu-btn {
@@ -184,7 +180,6 @@
       border: 1px solid var(--border2);
       border-radius: 16px; overflow: hidden;
       background: var(--surface2); position: relative;
-      box-shadow: 0 0 40px rgba(0,240,255,.06);
     }
     .camera-card video {
       width: 100%; height: 100%; object-fit: cover;
@@ -341,11 +336,9 @@
       display: none; flex-direction: column; align-items: center; justify-content: center;
       padding: 60px 20px 16px; text-align: center;
     }
-    body[data-stage="consent"] #screen-consent,
     body[data-stage="welcome"] #screen-welcome,
     body[data-stage="input"]   #screen-input,
     body[data-stage="end"]     #screen-end { display: flex; }
-    body[data-stage="consent"] #app,
     body[data-stage="welcome"] #app,
     body[data-stage="input"]   #app,
     body[data-stage="end"]     #app { visibility: hidden; }
@@ -457,6 +450,9 @@
     .field input:focus, .field textarea:focus, .field select:focus, #cam-select:focus {
       outline: none; border-color: var(--accent); box-shadow: var(--glow-a);
     }
+    .notice-list { font-size: 12px; line-height: 1.75; color: var(--text-mid); padding-left: 1.2em; }
+    .notice-list li { margin-bottom: 6px; }
+    .notice-list b { color: var(--text); }
     .check { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-mid); cursor: pointer; }
     .check input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
     .hint { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); line-height: 1.6; margin-top: 6px; }
@@ -467,17 +463,6 @@
     #upload-status { margin-top: 22px; }
     .end-msg { font-size: 14px; color: var(--text-mid); max-width: 460px; line-height: 1.8; margin: 4px 0 12px; }
     .end-send { font-size: 12px; color: var(--text-mid); margin: 0 0 18px; letter-spacing: 0; }
-
-    .consent-title { font-size: clamp(20px, 4.5vw, 30px); }
-    .consent-list {
-      text-align: left; max-width: 560px; width: 100%;
-      font-size: 13px; line-height: 1.75; color: var(--text-mid);
-      margin: 4px 0 14px; padding-left: 1.3em;
-      max-height: calc(100dvh - 330px); min-height: 120px; overflow-y: auto;
-    }
-    .consent-list li { margin-bottom: 6px; }
-    .consent-list b { color: var(--text); }
-    .consent-check { justify-content: center; margin-bottom: 14px; font-size: 14px; color: var(--text); }
 
     .activity-btn {
       width: 100%; padding: 8px 10px; margin-bottom: 8px;
@@ -498,7 +483,7 @@
       background: var(--surface2); color: var(--text-dim);
       font-family: var(--font-mono); font-size: 12px; line-height: 1.8;
     }
-    .camera-card.preview-hidden video, .camera-card.preview-hidden canvas { visibility: hidden; }
+    .camera-card.preview-hidden video, .camera-card.preview-hidden canvas { display: none !important; }
     .camera-card.preview-hidden .preview-cover { display: flex; }
     .cam-status-bar { z-index: 2; }
 
@@ -566,7 +551,7 @@
     }
   </style>
 </head>
-<body data-stage="consent">
+<body data-stage="welcome">
   <div class="scanlines"></div>
 
   <!-- ── MENU BUTTON ── -->
@@ -604,7 +589,7 @@
     <!-- 計測オプション -->
     <div class="menu-section">
       <div class="menu-section-title">計測オプション</div>
-      <label class="check"><input type="checkbox" id="opt-hide-preview" checked> 計測中はカメラ映像を隠す</label>
+      <label class="check"><input type="checkbox" id="opt-hide-preview"> 計測中はカメラ映像を隠す</label>
       <div class="hint">自分の顔が映っていると、瞬きに影響することがあります。映像を隠していても、顔が検出できているかは状態表示で分かります。</div>
       <div class="field" style="margin-top:14px">
         <label for="opt-planned">予定時間（分）</label>
@@ -656,6 +641,11 @@
           <input type="range" id="minclosed-slider" min="20" max="200" step="10" value="60">
         </div>
         <div class="hint">この時間より短い目の閉じは、瞬きに数えません。処理が遅い（fpsが低い）端末では、短すぎると取りこぼします。</div>
+        <div class="setting-row" style="margin-top:14px">
+          <label>処理回数の上限 <span class="val"><span id="maxfps-val">30</span> 回/秒</span></label>
+          <input type="range" id="maxfps-slider" min="10" max="30" step="5" value="30">
+        </div>
+        <div class="hint">下げるほどパソコンへの負荷は軽くなりますが、速い瞬きを取りこぼしやすくなります。動作が重いときだけ下げてください。</div>
         <div class="hint" style="margin-top:10px">しきい値を計測中に変更すると、変更した時刻が記録に残ります。</div>
       </div>
 
@@ -666,6 +656,19 @@
           通常: 0.25〜0.35 ／ 閉じた: 0.10〜0.15
         </div>
       </div>
+    </div>
+
+    <!-- 研究へのご協力について（同意文：操作は不要） -->
+    <div class="menu-section">
+      <div class="menu-section-title">研究へのご協力について</div>
+      <ul class="notice-list">
+        <li>この研究は、画面（動画・ゲーム・作業など）を見ているときの<b>瞬きの回数や間隔</b>を調べるものです。</li>
+        <li>カメラ映像は<b>この端末の中だけで処理</b>され、<b>保存も送信もされません</b>。</li>
+        <li>記録・送信されるのは、瞬きの時刻などの<b>数値データ</b>と、利用環境（ブラウザの種類・画面サイズなど）です。氏名は記録しません。</li>
+        <li>参加は自由です。途中でやめても、不利益は一切ありません。</li>
+        <li>高校生の方は、<b>保護者の方の同意</b>も確認したうえで参加してください。</li>
+      </ul>
+      <div class="hint">このアプリを使って計測を始めた時点で、上記の内容を確認したものとして扱います。</div>
     </div>
   </aside>
 
@@ -703,7 +706,7 @@
     <!-- ── しきい値テストパネル ── -->
     <div class="measure-section" id="test-panel">
       <div class="measure-section-title">// しきい値テスト</div>
-      <div class="tip">💡 実際に計測で使うモニター（ゲームや作業をする画面）を見ながらテストすると、精度が上がります。</div>
+      <div class="tip">💡 実際に計測で使うモニター（ゲームや作業をする画面）を見ながらテストすると、精度が上がります。カメラは目の高さで、顔となるべく平行に置いてください。</div>
 
       <div class="test-box" id="test-run">
         <div class="test-thr">テスト中のしきい値 <span id="test-thr-val">0.10</span></div>
@@ -747,30 +750,12 @@
    </div><!-- /panel-col -->
   </div>
 
-  <!-- ── 同意確認画面 ── -->
-  <section class="stage-screen" id="screen-consent">
-    <div class="stage-badge">CONSENT</div>
-    <h1 class="stage-title consent-title">研究へのご協力のお願い</h1>
-    <ul class="consent-list">
-      <li>この研究は、画面（動画・ゲーム・作業など）を見ているときの<b>瞬きの回数や間隔</b>を調べるものです。</li>
-      <li>カメラ映像は<b>この端末の中だけで処理</b>され、<b>保存も送信もされません</b>。</li>
-      <li>記録・送信されるのは、瞬きの時刻などの<b>数値データ</b>と、利用環境（ブラウザの種類・画面サイズなど）です。氏名は記録しません。</li>
-      <li>参加は自由です。途中でやめても、不利益は一切ありません。</li>
-      <li>高校生の方は、<b>保護者の方の同意</b>も確認したうえで参加してください。</li>
-      <li>研究責任者・連絡先：【ここに記入してください】</li>
-    </ul>
-    <label class="check consent-check"><input type="checkbox" id="consent-check"> 上の内容を理解し、同意します</label>
-    <div class="stage-btns">
-      <button id="btn-consent" class="stage-btn primary" disabled>同意して始める</button>
-    </div>
-  </section>
-
   <!-- ── 最初の画面 ── -->
   <section class="stage-screen" id="screen-welcome">
     <div class="stage-badge">BLINK STUDY</div>
     <h1 class="stage-title">このアプリは初めてですか？</h1>
     <p class="stage-desc">初めての方は、あなたに合った瞬き検出のしきい値を調べるテストを行います。<br>2回目以降の方は、前回のしきい値を入力してください。</p>
-    <p class="tip welcome-tip">💡 しきい値は、実際に計測で使うモニター（ゲームや作業をする画面）を見ながら設定すると、精度が上がります。</p>
+    <p class="tip welcome-tip">💡 しきい値は、実際に計測で使うモニター（ゲームや作業をする画面）を見ながら設定すると、精度が上がります。<br>カメラは目の高さで、顔となるべく平行に置いてください（高すぎ・低すぎると瞬きを検出しにくくなります）。</p>
     <div class="stage-btns">
       <button id="btn-first-yes" class="stage-btn primary">はい<small>しきい値テストを行う</small></button>
       <button id="btn-first-no" class="stage-btn">いいえ<small>しきい値を入力する</small></button>
@@ -867,9 +852,11 @@
   // ── 調整用の定数 ─────────────────────────────────────────────
   const DET   = { hysteresis: 0.02, minIntervalMs: 150 };  // 目が開いたと判定する余裕 / 瞬きの最短間隔
   const LOST_MIN_MS = 300;                                 // これ以上顔が見えない区間を「未検出」とする
-  const GUIDE = { farFace: 0.20, nearFace: 0.70, edgeX: 0.25, edgeYlo: 0.20, edgeYhi: 0.80, dark: 50, lowFps: 15 };
+  const GUIDE = { farFace: 0.20, nearFace: 0.70, edgeX: 0.25, edgeYlo: 0.20, edgeYhi: 0.80, dark: 50,
+                  pitchHigh: 20, pitchLow: -20 };   // カメラの上下の傾き(度)：+が上すぎ、−が下すぎ
+  const lowFpsLimit = () => cfg.maxFps * 0.5;
   const STALL = { hiddenMs: 5000, visibleMs: 20000, noteMs: 1500 };  // 画面が止まったと判断する時間
-  const TEST  = { start: 0.10, step: 0.10, confirmStep: 0.02, max: 0.40, target: 5,
+  const TEST  = { start: 0.10, step: 0.05, confirmStep: 0.02, max: 0.40, target: 5,
                   countdownSec: 3, autoJudgeSec: 20, pauseMs: 3000 };
   const GENRES = ['FPS / TPS', 'バトルロイヤル', 'MOBA', 'アクション', 'アクションRPG', 'RPG', 'アドベンチャー',
                   'オープンワールド', 'シミュレーション', '経営・育成', '戦略・RTS', 'パズル', '音楽・リズム',
@@ -877,9 +864,9 @@
                   'ビジュアルノベル', 'ローグライク', 'プラットフォーマー', 'シューティング（STG）', 'その他・不明'];
 
   const PENDING_KEY = 'blink_pending_v1', LAST_THR_KEY = 'blink_last_thr_v1',
-        THR_BY_ID_KEY = 'blink_thr_by_id_v1', HIDE_KEY = 'blink_opt_hide_v1';
+        THR_BY_ID_KEY = 'blink_thr_by_id_v1', HIDE_KEY = 'blink_opt_hide_v2';
 
-  let cfg = { earThreshold: 0.25, minClosedMs: 60 };
+  let cfg = { earThreshold: 0.25, minClosedMs: 60, maxFps: 30 };
   const ADMIN = new URLSearchParams(location.search).has('admin');
   if (ADMIN) document.body.classList.add('admin');
 
@@ -915,7 +902,7 @@
   }
 
   // ── 画面遷移 ─────────────────────────────────────────────────
-  let stage = 'consent';   // consent | welcome | input | test | measure | end
+  let stage = 'welcome';   // welcome | input | test | measure | end
   function setStage(s) { stage = s; document.body.dataset.stage = s; }
 
   // メニューのスライダー経由でcfgと表示を同期する
@@ -944,13 +931,18 @@
 
   function createFaceMesh() {
     faceMesh = new FaceMesh({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${LIB_VERSIONS.faceMesh}/${f}` });
-    faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: .5, minTrackingConfidence: .5 });
+    faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: .5, minTrackingConfidence: .5 });
     faceMesh.onResults(onFaceResult);
   }
 
   // フレーム送信ループ（faceMeshは再代入されることがあるので変数を直接参照する）
+  // 軽量化：①カメラの新しいフレームが来たときだけ処理する（画面の更新が60〜144Hzでも、同じ映像を何度も処理しない）
+  //         ②処理回数に上限をかける（既定30回/秒）
+  let lastVideoTime = -1, lastSentAt = 0;
   async function frameLoop() {
-    if (faceMesh && video.readyState >= 2) {
+    const now = performance.now();
+    if (faceMesh && video.readyState >= 2 && video.currentTime !== lastVideoTime && now - lastSentAt >= 1000 / cfg.maxFps - 3) {
+      lastVideoTime = video.currentTime; lastSentAt = now;
       try { await faceMesh.send({ image: video }); } catch (e) { /* 一時的なエラーは無視 */ }
     }
     frameLoopId = requestAnimationFrame(frameLoop);
@@ -962,8 +954,8 @@
     try {
       if (!mediaStream || !mediaStream.active) {
         const v = selectedCameraId
-          ? { deviceId: { exact: selectedCameraId }, width: 640, height: 480 }
-          : { width: 640, height: 480, facingMode: 'user' };
+          ? { deviceId: { exact: selectedCameraId }, width: 640, height: 480, frameRate: { ideal: 30, max: 30 } }
+          : { width: 640, height: 480, frameRate: { ideal: 30, max: 30 }, facingMode: 'user' };
         mediaStream = await navigator.mediaDevices.getUserMedia({ video: v });
       }
       video.srcObject = mediaStream;
@@ -1089,7 +1081,7 @@
       if (measuring) {
         quality.fpsSum += liveFps; quality.fpsN++;
         quality.fpsMin = Math.min(quality.fpsMin, liveFps);
-        if (liveFps < GUIDE.lowFps) quality.lowFpsSec++;
+        if (liveFps < lowFpsLimit()) quality.lowFpsSec++;
       }
       fpsWinStart = t; fpsWinCount = 0;
       updateAdminReadout();
@@ -1101,11 +1093,16 @@
     tooFar:    '顔が遠すぎます。少し近づいてください',
     tooClose:  '顔が近すぎます。少し離れてください',
     offCenter: '顔が画面の端にあります。中央に寄ってください',
+    camHigh:   'カメラが高すぎます。目の高さまで下げて、顔と平行にしてください',
+    camLow:    'カメラが低すぎます。目の高さまで上げて、顔と平行にしてください',
   };
+  let pitchEma = null;   // カメラの上下の傾き（度）。急な変化をならした値
   function guideState(fw, cx, cy) {
     if (brightness !== null && brightness < GUIDE.dark) return 'dark';
     if (fw < GUIDE.farFace) return 'tooFar';
     if (fw > GUIDE.nearFace) return 'tooClose';
+    if (pitchEma !== null && pitchEma > GUIDE.pitchHigh) return 'camHigh';
+    if (pitchEma !== null && pitchEma < GUIDE.pitchLow) return 'camLow';
     if (Math.abs(cx - .5) > GUIDE.edgeX || cy < GUIDE.edgeYlo || cy > GUIDE.edgeYhi) return 'offCenter';
     return null;
   }
@@ -1122,8 +1119,9 @@
     prevFrameT = t;
 
     const showVideo = !(measuring && previewHidden());
-    const w = overlay.width  = video.videoWidth  || 640;
-    const h = overlay.height = video.videoHeight || 480;
+    const w = video.videoWidth  || 640;
+    const h = video.videoHeight || 480;
+    if (overlay.width !== w || overlay.height !== h) { overlay.width = w; overlay.height = h; }
     ctx.clearRect(0, 0, w, h);
     if (Math.abs(w / h - camAspect) > 0.01) { camAspect = w / h; fitCamera(); }
 
@@ -1145,16 +1143,21 @@
     const fw = Math.abs(lm[454].x - lm[234].x);
     const cx = (lm[454].x + lm[234].x) / 2, cy = lm[1].y;
     liveFaceW = fw;
+    // カメラの上下の傾き：額→顎のベクトルの「奥行き÷縦」の角度（標準顔の約0.7°を引いて正面を0°にそろえる）
+    const pitch = Math.atan2(((lm[152].z || 0) - (lm[10].z || 0)) * w, (lm[152].y - lm[10].y) * h) * 180 / Math.PI - 0.7;
+    pitchEma = pitchEma === null ? pitch : pitchEma * 0.9 + pitch * 0.1;
     const g = guideState(fw, cx, cy);
 
     if (measuring) {
       quality.earRSum += e.r; quality.earLSum += e.l; quality.earN++;
       quality.fwSum += fw; quality.fwN++; quality.fwMin = Math.min(quality.fwMin, fw); quality.fwMax = Math.max(quality.fwMax, fw);
       if (g) quality.warn[g] += dt;
+      quality.pitchSum += pitchEma; quality.pitchN++;
+      quality.pitchMin = Math.min(quality.pitchMin, pitchEma); quality.pitchMax = Math.max(quality.pitchMax, pitchEma);
     }
 
     if (g) setStatus('warn', GUIDE_MSG[g]);
-    else if (liveFps && liveFps < GUIDE.lowFps) setStatus('warn', `処理が遅くなっています（${Math.round(liveFps)}fps）`);
+    else if (liveFps && liveFps < lowFpsLimit()) setStatus('warn', `処理が遅くなっています（${Math.round(liveFps)}fps）`);
     else setStatus('ok', '顔を検出中 ✓');
 
     if (ADMIN) {
@@ -1164,7 +1167,7 @@
       $('ear-live-val').textContent = e.avg.toFixed(3);
     }
 
-    if (showVideo) {
+    if (showVideo && (ADMIN || stage === 'test')) {
       [[159,145,33,133,160,144],[386,374,362,263,387,373]].forEach(idx => {
         idx.forEach(i => {
           ctx.beginPath();
@@ -1469,7 +1472,8 @@
   let blinks = [], undetectedIntervals = [], lostSincePerf = null;
   let events = [], activityLog = [], thresholdChanges = [], lastLoggedThr = 0;
   let plannedSec = null, quality = newQuality(), lastOp = null;
-  let consentInfo = null;
+  // 同意文はメニュー下部に掲載（同意ボタンなし・計測者の操作は不要）。どの版を掲載していたかだけ記録する
+  const consentInfo = { type: 'notice_in_menu', version: CONSENT_VERSION };
   const evLog = { break: { list: [], open: null }, away: { list: [], open: null } };
   const EV_UI = {
     break: { btn: 'meas-btn-break', label: 'label-break', name: '休憩', on: '休憩終了', off: '休憩開始' },
@@ -1485,7 +1489,8 @@
     return { frames: 0, fpsSum: 0, fpsN: 0, fpsMin: Infinity, lowFpsSec: 0,
              earRSum: 0, earLSum: 0, earN: 0, fwSum: 0, fwMin: Infinity, fwMax: 0, fwN: 0,
              brSum: 0, brN: 0, brMin: Infinity, brMax: 0,
-             warn: { tooFar: 0, tooClose: 0, offCenter: 0, dark: 0 } };
+             pitchSum: 0, pitchN: 0, pitchMin: Infinity, pitchMax: -Infinity,
+             warn: { tooFar: 0, tooClose: 0, offCenter: 0, dark: 0, camHigh: 0, camLow: 0 } };
   }
 
   // 顔（目）を検出できていなかった区間の記録
@@ -1662,7 +1667,7 @@
       savedAt: new Date().toISOString(),
       endReason: reason,    // user / scheduled / tab_hidden / stalled / camera_lost / page_closed
       participant: { id: $('p-id').value.trim(), session: $('p-session').value.trim(), memo: $('p-memo').value.trim() },
-      consent: consentInfo,
+      consent: consentInfo,                    // 同意ボタンはなし。メニューに掲載していた同意文の版を記録
       environment: {
         userAgent: navigator.userAgent,
         platform: (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '',
@@ -1678,6 +1683,7 @@
       thresholdTest: thresholdSource === 'manual' ? null : testInfo,
       thresholdChanges,                        // 計測中にしきい値を変えた記録
       minClosedMs: cfg.minClosedMs,
+      processingFpsCap: cfg.maxFps,
       hysteresis: DET.hysteresis,
       minBlinkIntervalMs: DET.minIntervalMs,
       plannedDurationSec: plannedSec,
@@ -1704,7 +1710,8 @@
         earRightMean: avg(q.earRSum, q.earN), earLeftMean: avg(q.earLSum, q.earN),
         faceWidth: { mean: avg(q.fwSum, q.fwN), min: fin(q.fwMin), max: q.fwN ? r3(q.fwMax) : null },
         brightness: { mean: avg(q.brSum, q.brN), min: fin(q.brMin), max: q.brN ? r3(q.brMax) : null },
-        warningSec: { tooFar: r2(q.warn.tooFar), tooClose: r2(q.warn.tooClose), offCenter: r2(q.warn.offCenter), dark: r2(q.warn.dark) },
+        cameraPitchDeg: { mean: avg(q.pitchSum, q.pitchN), min: fin(q.pitchMin), max: fin(q.pitchMax) },   // +：カメラが上すぎ / −：下すぎ
+        warningSec: { tooFar: r2(q.warn.tooFar), tooClose: r2(q.warn.tooClose), offCenter: r2(q.warn.offCenter), dark: r2(q.warn.dark), camHigh: r2(q.warn.camHigh), camLow: r2(q.warn.camLow) },
       },
       events,                                  // タブ非表示・処理停止・通信切断などの記録
     };
@@ -1870,12 +1877,6 @@
   // ============================================================
   //  ボタン配線
   // ============================================================
-  $('consent-check').addEventListener('change', e => { $('btn-consent').disabled = !e.target.checked; });
-  $('btn-consent').addEventListener('click', () => {
-    consentInfo = { agreed: true, agreedAt: new Date().toISOString(), version: CONSENT_VERSION };
-    setStage('welcome');
-  });
-
   $('btn-camera-start').addEventListener('click', startCamera);
   $('btn-eye-reset').addEventListener('click', resetEyeTracking);
   $('cam-select').addEventListener('change', e => switchCamera(e.target.value));
@@ -1993,6 +1994,10 @@
   });
   // 手動で動かして指を離したときだけ記録（テスト中の自動変更は 'change' を出さない）
   $('ear-slider').addEventListener('change', e => logThresholdChange(+e.target.value));
+  $('maxfps-slider').addEventListener('input', e => {
+    cfg.maxFps = +e.target.value;
+    $('maxfps-val').textContent = cfg.maxFps;
+  });
   $('minclosed-slider').addEventListener('input', e => {
     cfg.minClosedMs = +e.target.value;
     $('minclosed-val').textContent = cfg.minClosedMs;
