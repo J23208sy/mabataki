@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BLINK STUDY — 瞬き計測システム</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;700&family=Noto+Sans+JP:wght@300;400;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg:        #04060a;
+      --surface:   #080d14;
+      --surface2:  #0d1520;
+      --border:    #1a2535;
+      --border2:   #243040;
+      --accent:    #00f0ff;
+      --accent2:   #7b2fff;
+      --gold:      #ffd060;
+      --ok:        #00e676;
+      --danger:    #ff2d55;
+      --text:      #e8f0f8;
+      --text-dim:  #6a7f99;
+      --text-mid:  #a0b4cc;
+      --font-head: 'Bebas Neue', sans-serif;
+      --font-ui:   'Rajdhani', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-body: 'Noto Sans JP', sans-serif;
+      --glow-a:    0 0 20px rgba(0,240,255,.4);
+      --glow-v:    0 0 20px rgba(123,47,255,.4);
+      --glow-g:    0 0 20px rgba(0,230,118,.4);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--font-body);
+      height: 100vh; height: 100dvh; overflow: hidden;
+      position: relative;
+    }
+
+    /* ── 背景グリッド ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(rgba(0,240,255,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,240,255,.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+    body::after {
+      content: '';
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(0,240,255,.07) 0%, transparent 70%),
+                  radial-gradient(ellipse 50% 40% at 80% 100%, rgba(123,47,255,.06) 0%, transparent 70%);
+    }
+
+    /* ── スキャンライン ── */
+    .scanlines {
+      position: fixed; inset: 0; pointer-events: none; z-index: 9998;
+      background: repeating-linear-gradient(to bottom,
+        transparent 0px, transparent 3px, rgba(0,0,0,.06) 3px, rgba(0,0,0,.06) 4px);
+    }
+
+    /* ──────────────────── MENU SIDEBAR ──────────────────── */
+    #menu-btn {
+      position: fixed; top: 20px; left: 20px; z-index: 1000;
+      width: 44px; height: 44px;
+      background: var(--surface2); border: 1px solid var(--border2);
+      border-radius: 10px; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+      transition: all .2s;
+    }
+    #menu-btn:hover { border-color: var(--accent); box-shadow: var(--glow-a); }
+    #menu-btn span {
+      display: block; width: 20px; height: 2px;
+      background: var(--text); border-radius: 2px; transition: all .3s;
+    }
+    #menu-btn.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    #menu-btn.open span:nth-child(2) { opacity: 0; }
+    #menu-btn.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    #app-title-label {
+      position: fixed; top: 20px; left: 74px; z-index: 1000;
+      height: 44px;
+      display: flex; align-items: center;
+      font-family: var(--font-ui); font-size: 15px; font-weight: 600;
+      color: var(--text-mid); letter-spacing: .04em;
+      pointer-events: none;
+    }
+
+    #menu-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.5);
+      z-index: 500; opacity: 0; pointer-events: none; transition: opacity .3s;
+    }
+    #menu-overlay.show { opacity: 1; pointer-events: all; }
+
+    #menu-panel {
+      position: fixed; top: 0; left: -360px; bottom: 0; width: 340px;
+      background: var(--surface); border-right: 1px solid var(--border);
+      z-index: 600; transition: left .35s cubic-bezier(.25,.8,.25,1);
+      display: flex; flex-direction: column; overflow-y: auto;
+    }
+    #menu-panel.open { left: 0; }
+
+    .menu-header {
+      padding: 80px 24px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .menu-header h2 {
+      font-family: var(--font-head); font-size: 28px; letter-spacing: .1em;
+      color: var(--accent); line-height: 1;
+    }
+    .menu-header p { font-size: 11px; color: var(--text-dim); margin-top: 4px; font-family: var(--font-mono); }
+
+    .menu-section { padding: 20px 24px; border-bottom: 1px solid var(--border); }
+    .menu-section-title {
+      font-family: var(--font-mono); font-size: 9px; letter-spacing: .2em;
+      color: var(--accent); text-transform: uppercase; margin-bottom: 16px;
+    }
+    .setting-row { margin-bottom: 16px; }
+    .setting-row label {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 13px; color: var(--text-mid); margin-bottom: 8px;
+      font-family: var(--font-ui); font-weight: 600;
+    }
+    .setting-row label .val {
+      font-family: var(--font-mono); font-size: 12px; color: var(--accent);
+    }
+    input[type=range] {
+      width: 100%; accent-color: var(--accent); cursor: pointer; height: 4px;
+    }
+
+    .sens-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+    .sens-btn {
+      flex: 1; min-width: 0;
+      padding: 6px 4px; font-size: 11px; font-family: var(--font-mono);
+      background: var(--surface2); border: 1px solid var(--border2);
+      color: var(--text-dim); border-radius: 5px; cursor: pointer; transition: all .15s;
+      white-space: nowrap; text-align: center;
+    }
+    .sens-btn:hover { border-color: var(--accent); color: var(--text); }
+    .sens-btn.active { background: rgba(0,240,255,.1); border-color: var(--accent); color: var(--accent); }
+
+    .sens-desc-txt { font-size: 11px; color: var(--text-dim); margin-top: 6px; font-family: var(--font-mono); }
+
+    /* ── EAR live monitor ── */
+    .ear-monitor {
+      margin-top: 10px; padding: 12px;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    }
+    .ear-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-dim); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 6px; }
+    .ear-bar-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .ear-bar-fill { height: 100%; width: 50%; background: var(--ok); border-radius: 3px; transition: width .05s linear, background .1s; }
+    .ear-val-row { display: flex; justify-content: space-between; margin-top: 4px; font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); }
+
+    /* ──────────────────── MAIN LAYOUT ──────────────────── */
+    #app {
+      position: relative; z-index: 1;
+      height: 100vh; height: 100dvh; display: flex; flex-direction: column;
+      align-items: center;
+      padding: 68px 16px 12px;
+      gap: 8px;
+      overflow: hidden;
+    }
+    /* カメラ側（残りの高さを使う）とパネル側（必要な高さだけ）に分ける */
+    #cam-col {
+      flex: 1 1 0; min-height: 0; min-width: 0;
+      width: 100%; max-width: 760px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    #cam-wrap {
+      flex: 1 1 0; min-height: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #panel-col { flex: none; width: 100%; max-width: 760px; }
+
+    /* ──────────────────── CAMERA CARD ──────────────────── */
+    .camera-card {
+      /* 幅・高さはJS(fitCamera)が、空き領域に収まる最大サイズで設定する */
+      flex: none; width: 320px; height: 240px;
+      border: 1px solid var(--border2);
+      border-radius: 16px; overflow: hidden;
+      background: var(--surface2); position: relative;
+      box-shadow: 0 0 40px rgba(0,240,255,.06);
+    }
+    .camera-card video {
+      width: 100%; height: 100%; object-fit: cover;
+      transform: scaleX(-1); display: block;
+    }
+    .camera-card canvas {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      transform: scaleX(-1);
+    }
+    .camera-idle {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 12px;
+    }
+    .camera-idle .eye-icon {
+      font-size: 64px; line-height: 1;
+      animation: pulse-eye 2.5s ease-in-out infinite;
+    }
+    @keyframes pulse-eye { 0%,100%{opacity:.4;transform:scale(1)} 50%{opacity:.9;transform:scale(1.05)} }
+    .camera-idle p { font-size: 13px; color: var(--text-dim); font-family: var(--font-mono); }
+
+    .cam-start-btn {
+      margin-top: 4px; padding: 11px 30px;
+      font-family: var(--font-ui); font-size: 14px; font-weight: 700; letter-spacing: .05em;
+      border: 1px solid var(--accent); border-radius: 10px;
+      background: rgba(0,240,255,.08); color: var(--accent);
+      cursor: pointer; transition: all .2s;
+    }
+    .cam-start-btn:hover { background: rgba(0,240,255,.18); box-shadow: var(--glow-a); }
+    .cam-start-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    .camera-controls {
+      width: 100%; max-width: 760px; margin-top: 0;
+    }
+    .cam-ctrl-btn {
+      width: 100%; padding: 8px;
+      font-family: var(--font-ui); font-size: 13px; font-weight: 600; letter-spacing: .03em;
+      border: 1px solid var(--border2); border-radius: 10px;
+      background: var(--surface2); color: var(--text-mid);
+      cursor: pointer; transition: all .2s;
+    }
+    .cam-ctrl-btn:hover { border-color: var(--accent); color: var(--text); box-shadow: var(--glow-a); }
+
+    .btn-key-hint {
+      font-family: var(--font-mono); font-size: 8px; color: var(--text-dim);
+      opacity: .7;
+    }
+
+    /* ── カメラ内ステータスバー ── */
+    .cam-status-bar {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(4,6,10,.9));
+      padding: 20px 16px 10px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .cam-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; }
+    .cam-dot.ok { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    .cam-dot.warn { background: var(--gold); box-shadow: 0 0 8px var(--gold); animation: blink-dot .6s ease-in-out infinite alternate; }
+    @keyframes blink-dot { to { opacity: .3; } }
+    .cam-status-txt { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); letter-spacing: .08em; }
+
+    /* ── 瞬きフラッシュ ── */
+    #blink-flash {
+      position: absolute; inset: 0;
+      background: rgba(0,240,255,.25); opacity: 0; pointer-events: none;
+      border-radius: 16px; transition: opacity .05s;
+    }
+
+    /* ──────────────────── MEASURE BUTTONS ──────────────────── */
+    .measure-section {
+      width: 100%; max-width: 760px; margin-top: 0;
+    }
+    .measure-section-title {
+      font-family: var(--font-mono); font-size: 9px; letter-spacing: .25em;
+      color: var(--text-dim); text-transform: uppercase; margin-bottom: 8px;
+      text-align: center;
+    }
+    .measure-btns {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+
+    .meas-btn {
+      position: relative; overflow: hidden;
+      padding: 0; border: 1px solid var(--border2);
+      border-radius: 12px; cursor: pointer;
+      background: var(--surface2);
+      transition: all .25s;
+      min-height: 52px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 4px;
+    }
+    .meas-btn::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(0,240,255,.08) 0%, transparent 60%);
+      opacity: 0; transition: opacity .25s;
+    }
+    .meas-btn:hover:not(:disabled)::before { opacity: 1; }
+    .meas-btn:hover:not(:disabled) { border-color: rgba(0,240,255,.4); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,240,255,.1); }
+    .meas-btn:disabled { opacity: .4; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+    .meas-btn:disabled::before { opacity: 0 !important; }
+
+    .meas-btn.measuring {
+      border-color: var(--accent);
+      background: rgba(0,240,255,.06);
+      box-shadow: 0 0 20px rgba(0,240,255,.2), inset 0 0 20px rgba(0,240,255,.04);
+      animation: measure-pulse 1.5s ease-in-out infinite;
+      cursor: pointer;
+      transform: none;
+    }
+    @keyframes measure-pulse {
+      0%,100% { box-shadow: 0 0 16px rgba(0,240,255,.2), inset 0 0 16px rgba(0,240,255,.04); }
+      50%      { box-shadow: 0 0 32px rgba(0,240,255,.4), inset 0 0 24px rgba(0,240,255,.08); }
+    }
+    .meas-btn.measuring::before { opacity: 1; }
+    .meas-btn.measuring .btn-label { color: var(--accent); }
+
+    .meas-btn.done {
+      border-color: var(--ok);
+      background: rgba(0,230,118,.05);
+      cursor: default;
+      transform: none;
+    }
+    .meas-btn.done .btn-label { color: var(--ok); }
+
+    .meas-btn.main { grid-column: 1 / -1; min-height: 60px; }
+
+    .btn-label {
+      font-family: var(--font-body); font-weight: 700; font-size: 15px; letter-spacing: .1em;
+      color: var(--text); transition: color .2s; line-height: 1; text-align: center; padding: 0 8px;
+    }
+    .btn-num-label {
+      font-family: var(--font-mono); font-size: 9px; color: var(--text-dim);
+      letter-spacing: .15em;
+    }
+    .btn-result-val {
+      font-family: var(--font-head); font-size: 22px; color: var(--ok);
+      letter-spacing: .05em; line-height: 1;
+    }
+    .btn-result-unit {
+      font-family: var(--font-mono); font-size: 9px; color: var(--ok); opacity: .7;
+    }
+
+    /* ── 計測中タイマー表示 ── */
+    .meas-timer {
+      position: absolute; top: 8px; right: 10px;
+      font-family: var(--font-mono); font-size: 10px; color: var(--accent);
+      opacity: 0; transition: opacity .2s;
+    }
+    .meas-btn.measuring .meas-timer { opacity: 1; }
+
+    /* ──────────────────── STAGE SCREENS（最初の画面・しきい値入力） ──────────────────── */
+    .stage-screen {
+      position: fixed; inset: 0; z-index: 100;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      padding: 60px 20px 16px; text-align: center;
+    }
+    body[data-stage="welcome"] #screen-welcome,
+    body[data-stage="input"]   #screen-input { display: flex; }
+    body[data-stage="welcome"] #app,
+    body[data-stage="input"]   #app { visibility: hidden; }
+
+    .stage-badge {
+      font-family: var(--font-mono); font-size: 10px; letter-spacing: .3em;
+      color: var(--accent); text-transform: uppercase; margin-bottom: 18px;
+      padding: 4px 16px; border: 1px solid rgba(0,240,255,.3); border-radius: 20px;
+    }
+    .stage-title {
+      font-family: var(--font-body); font-weight: 900;
+      font-size: clamp(22px, 5vw, 38px); line-height: 1.35; margin-bottom: 12px;
+    }
+    .stage-desc {
+      font-size: 13px; color: var(--text-dim); line-height: 1.8;
+      margin-bottom: 32px; max-width: 460px;
+    }
+    .stage-btns { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+    .stage-btn {
+      min-width: 200px; padding: 16px 28px;
+      font-family: var(--font-body); font-size: 18px; font-weight: 700;
+      border: 1px solid var(--border2); border-radius: 12px;
+      background: var(--surface2); color: var(--text);
+      cursor: pointer; transition: all .2s;
+    }
+    .stage-btn small {
+      display: block; margin-top: 4px;
+      font-size: 11px; font-weight: 400; color: var(--text-dim);
+    }
+    .stage-btn:hover { border-color: var(--accent); box-shadow: var(--glow-a); }
+    .stage-btn.primary { border-color: var(--accent); background: rgba(0,240,255,.08); color: var(--accent); }
+    .stage-btn.primary small { color: var(--text-mid); }
+
+    .thr-input-row {
+      display: flex; align-items: center; gap: 16px;
+      width: 100%; max-width: 460px; margin: 20px 0 28px;
+    }
+    #thr-number {
+      width: 120px; padding: 10px 12px;
+      font-family: var(--font-mono); font-size: 22px; text-align: center;
+      background: var(--surface2); color: var(--accent);
+      border: 1px solid var(--border2); border-radius: 8px;
+    }
+    #thr-number:focus { outline: none; border-color: var(--accent); box-shadow: var(--glow-a); }
+    #thr-range { flex: 1; }
+
+    /* ──────────────────── TEST / MEASURE PANELS ──────────────────── */
+    #test-panel, #measure-panel { display: none; }
+    body[data-stage="test"]    #test-panel,
+    body[data-stage="measure"] #measure-panel { display: block; }
+
+    .test-box {
+      border: 1px solid var(--border2); border-radius: 12px;
+      background: var(--surface2); padding: 8px 14px; text-align: center;
+    }
+    .test-thr { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); letter-spacing: .1em; }
+    .test-thr span { color: var(--accent); font-size: 14px; }
+    .test-msg { font-size: clamp(15px, 3.2vw, 20px); font-weight: 700; margin: 4px 0 2px; }
+    .test-sub { font-size: 12px; color: var(--text-dim); min-height: 18px; line-height: 1.6; }
+    .test-big-thr {
+      font-family: var(--font-head); font-size: 44px; color: var(--accent);
+      letter-spacing: .05em; line-height: 1.1;
+    }
+    .test-note { font-size: 11px; color: var(--gold); line-height: 1.6; margin: 2px 0 4px; }
+    .test-box .cam-start-btn { margin-top: 6px; padding: 9px 26px; }
+    .test-back { margin-top: 6px; }
+    .test-judge-key { font-family: var(--font-mono); font-size: 11px; opacity: .8; margin-left: 6px; }
+
+    /* ──────────────────── TOAST ──────────────────── */
+    #toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      background: var(--surface2); border: 1px solid var(--accent);
+      border-radius: 8px; padding: 10px 22px;
+      font-family: var(--font-mono); font-size: 12px; color: var(--accent);
+      opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 9000;
+      white-space: nowrap;
+    }
+    #toast.show { opacity: 1; }
+
+    /* ──────────────────── MISC ──────────────────── */
+    .divider {
+      width: 100%; max-width: 760px; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 10px 0;
+    }
+
+    /* カメラがアクティブな時だけ表示 */
+    .cam-active-only { display: none; }
+    body.cam-on .cam-active-only { display: flex; }
+
+    /* ── スマホ縦 ── */
+    @media (max-width: 520px) {
+      .stage-btn { min-width: 100%; }
+      .thr-input-row { flex-direction: column; align-items: stretch; }
+      #thr-number { width: 100%; }
+      #app { padding-left: 10px; padding-right: 10px; }
+    }
+    /* ── 高さが低い画面（横向きスマホなど）──────────────── */
+    @media (max-height: 520px) {
+      .stage-screen { padding-top: 52px; }
+      .stage-desc { display: none; }
+      .stage-title { font-size: 22px; margin-bottom: 8px; }
+      .stage-btn { padding: 10px 20px; font-size: 16px; min-width: 160px; }
+      .thr-input-row { margin: 10px 0 14px; }
+    }
+    /* 横向きで低いときは、カメラを左・操作パネルを右に並べる */
+    @media (orientation: landscape) and (max-height: 520px) {
+      #app { flex-direction: row; align-items: stretch; padding-top: 68px; gap: 12px; }
+      #cam-col { max-width: none; }
+      #panel-col { width: min(340px, 44vw); max-width: none; display: flex; flex-direction: column; justify-content: center; }
+    }
+  </style>
+</head>
+<body data-stage="welcome">
+  <div class="scanlines"></div>
+
+  <!-- ── MENU BUTTON ── -->
+  <button id="menu-btn" aria-label="メニュー">
+    <span></span><span></span><span></span>
+  </button>
+  <div id="app-title-label">瞬き検出アプリ ver3.0（研究用）</div>
+
+  <!-- ── MENU PANEL ── -->
+  <div id="menu-overlay"></div>
+  <aside id="menu-panel">
+    <div class="menu-header">
+      <h2>SETTINGS</h2>
+      <p>// 瞬き検出パラメータ設定</p>
+    </div>
+
+    <!-- 検出感度 -->
+    <div class="menu-section">
+      <div class="menu-section-title">検出感度 (EAR しきい値)</div>
+      <div class="sens-btns" id="sens-btns">
+        <button class="sens-btn" data-ear="0.13">低め</button>
+        <button class="sens-btn" data-ear="0.17">やや低め</button>
+        <button class="sens-btn" data-ear="0.20">標準</button>
+        <button class="sens-btn active" data-ear="0.24">やや高め</button>
+        <button class="sens-btn" data-ear="0.30">高め</button>
+      </div>
+      <div class="sens-desc-txt" id="sens-desc">やや高め — 浅い瞬きでも反応しやすくなります</div>
+
+      <!-- EARスライダー -->
+      <div class="setting-row" style="margin-top:14px">
+        <label>EAR しきい値 <span class="val" id="ear-val-txt">0.25</span></label>
+        <input type="range" id="ear-slider" min="0.05" max="0.60" step="0.01" value="0.25">
+      </div>
+
+      <!-- EAR リアルタイムモニター -->
+      <div class="ear-monitor">
+        <div class="ear-label">👁 EAR リアルタイム値</div>
+        <div class="ear-bar-track">
+          <div class="ear-bar-fill" id="ear-bar"></div>
+        </div>
+        <div class="ear-val-row">
+          <span>0.10 (閉)</span>
+          <span id="ear-live-val" style="color:var(--text)">— (計測中に表示)</span>
+          <span>0.40 (開)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 最小フレーム数 -->
+    <div class="menu-section">
+      <div class="menu-section-title">その他の設定</div>
+      <div class="setting-row">
+        <label>最小検出フレーム数 <span class="val" id="minframe-val">2</span></label>
+        <input type="range" id="minframe-slider" min="1" max="5" step="1" value="2">
+      </div>
+      <div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);line-height:1.6">
+        値が小さいほど素早い瞬きも検出しやすくなります。<br>ノイズが多い場合は増やしてください。
+      </div>
+    </div>
+
+    <!-- EARについての説明 -->
+    <div class="menu-section">
+      <div class="menu-section-title">EAR とは？</div>
+      <div style="font-size:12px;color:var(--text-dim);font-family:var(--font-mono);line-height:1.7">
+        Eye Aspect Ratio（目のアスペクト比）。<br>
+        目の縦幅 ÷ 横幅 で算出。<br>
+        瞬き時に急激に低下する数値を使って瞬きを検出します。<br><br>
+        通常: 0.25〜0.35<br>
+        閉じた: 0.10〜0.15
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN APP ── -->
+  <div id="app">
+   <div id="cam-col">
+    <div id="cam-wrap">
+    <!-- カメラ -->
+    <div class="camera-card" id="camera-card">
+      <video id="video" autoplay playsinline muted style="display:none"></video>
+      <canvas id="overlay"></canvas>
+      <div id="blink-flash"></div>
+
+      <div class="camera-idle" id="camera-idle">
+        <div class="eye-icon">👁️</div>
+        <p>// カメラを起動して顔を正面に向けてください</p>
+        <button id="btn-camera-start" class="cam-start-btn">▶ カメラを起動</button>
+      </div>
+
+      <div class="cam-status-bar">
+        <div class="cam-dot" id="cam-dot"></div>
+        <span class="cam-status-txt" id="cam-status">カメラ未接続</span>
+      </div>
+    </div>
+    </div><!-- /cam-wrap -->
+
+    <!-- カメラ操作（起動中のみ表示） -->
+    <div class="camera-controls cam-active-only" id="camera-controls">
+      <button id="btn-eye-reset" class="cam-ctrl-btn">🔄 目の位置をリセット</button>
+    </div>
+   </div><!-- /cam-col -->
+
+   <div id="panel-col">
+
+    <!-- ── しきい値テストパネル ── -->
+    <div class="measure-section" id="test-panel">
+      <div class="measure-section-title">// しきい値テスト</div>
+
+      <div class="test-box" id="test-run">
+        <div class="test-thr">テスト中のしきい値 <span id="test-thr-val">0.10</span></div>
+        <div class="test-msg" id="test-msg">カメラを起動しています…</div>
+        <div class="test-sub" id="test-sub"></div>
+        <button id="btn-test-judge" class="cam-start-btn" disabled>判定する<span class="test-judge-key">[Space]</span></button>
+      </div>
+
+      <div class="test-box" id="test-done" style="display:none">
+        <div class="test-thr">// TEST COMPLETE</div>
+        <div class="test-msg">あなたのしきい値は</div>
+        <div class="test-big-thr" id="test-result-thr">0.20</div>
+        <div class="test-note">※この数値を覚えておくと、次回からテストは不要になります。<br>（次回は「いいえ」を選び、この数値を入力してください）</div>
+        <button id="btn-test-go" class="cam-start-btn">計測へ</button>
+      </div>
+
+      <button id="btn-test-back" class="cam-ctrl-btn test-back">← 最初の画面に戻る</button>
+    </div>
+
+    <!-- ── 計測パネル ── -->
+    <div class="measure-section" id="measure-panel">
+      <div class="measure-section-title">// 計測 — しきい値 <span id="meas-thr">0.20</span></div>
+      <div class="measure-btns">
+        <button class="meas-btn main" id="meas-btn-main" disabled>
+          <span class="meas-timer" id="timer-main">00:00</span>
+          <span class="btn-label" id="label-main">計測開始</span>
+        </button>
+        <button class="meas-btn" id="meas-btn-break" disabled>
+          <span class="btn-num-label">休憩 <span class="btn-key-hint">[1]</span></span>
+          <span class="btn-label" id="label-break">休憩開始</span>
+        </button>
+        <button class="meas-btn" id="meas-btn-away" disabled>
+          <span class="btn-num-label">離席 <span class="btn-key-hint">[2]</span></span>
+          <span class="btn-label" id="label-away">離席開始</span>
+        </button>
+      </div>
+      <button id="btn-back-start" class="cam-ctrl-btn" style="margin-top:8px">← 最初の画面に戻る</button>
+    </div>
+   </div><!-- /panel-col -->
+  </div>
+
+  <!-- ── 最初の画面 ── -->
+  <section class="stage-screen" id="screen-welcome">
+    <div class="stage-badge">BLINK STUDY</div>
+    <h1 class="stage-title">このアプリは初めてですか？</h1>
+    <p class="stage-desc">初めての方は、あなたに合った瞬き検出のしきい値を調べるテストを行います。<br>2回目以降の方は、前回のしきい値を入力してください。</p>
+    <div class="stage-btns">
+      <button id="btn-first-yes" class="stage-btn primary">はい<small>しきい値テストを行う</small></button>
+      <button id="btn-first-no" class="stage-btn">いいえ<small>しきい値を入力する</small></button>
+    </div>
+    <div id="upload-status" style="margin-top:28px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--text-dim)"></div>
+  </section>
+
+  <!-- ── しきい値入力画面 ── -->
+  <section class="stage-screen" id="screen-input">
+    <div class="stage-badge">THRESHOLD</div>
+    <h1 class="stage-title">前回のしきい値を入力してください</h1>
+    <div class="thr-input-row">
+      <input type="number" id="thr-number" min="0.05" max="0.60" step="0.01" value="0.20" inputmode="decimal">
+      <input type="range" id="thr-range" min="0.05" max="0.60" step="0.01" value="0.20">
+    </div>
+    <div class="stage-btns">
+      <button id="btn-input-back" class="stage-btn">← 戻る</button>
+      <button id="btn-input-go" class="stage-btn primary">計測へ →</button>
+    </div>
+  </section>
+
+  <div id="toast"></div>
+
+  <script>
+  // ============================================================
+  //  BLINK STUDY — 瞬き計測システム（研究用）
+  // ============================================================
+
+  // ── config ──────────────────────────────────────────────────
+  let cfg = { earThreshold: 0.25, minFrames: 2 };
+
+  // ── データ送信先（Google Apps Script） ───────────────────────
+  // 空のままなら従来どおりこのPCにJSONをダウンロードします。
+  const UPLOAD_URL        = 'https://script.google.com/macros/s/AKfycbyPab1181EJpo0zH67DQdFO8AjIz7-MF0VXDb9xSslqtxEbuYoCSYkxbx-hAFol9zVT/exec';   // Apps ScriptのウェブアプリURL（…/exec）
+  const UPLOAD_TOKEN      = 'mabataki';   // Apps Script側のTOKENと同じ合言葉
+  const UPLOAD_TIMEOUT_MS = 15000;
+  const UPLOAD_RETRIES    = 2;    // 送信の試行回数
+
+  // ── state ───────────────────────────────────────────────────
+  let blinkFrames = 0;
+  let isEyeClosed = false;
+  let faceMesh = null, cameraRunning = false;
+  let mediaStream = null; // 一度許可されたカメラストリームを使い回し、許可ダイアログの再表示を防ぐ
+  let frameLoopId = null; // 自前のrequestAnimationFrameループ（camera_utilsのCameraクラスは
+                           // start()のたびに内部でgetUserMediaを呼び直してしまうため使用しない）
+
+  // ── DOM refs ─────────────────────────────────────────────────
+  const $ = id => document.getElementById(id);
+  const video   = $('video');
+  const overlay = $('overlay');
+  const ctx     = overlay.getContext('2d');
+
+  // ── EAR計算 ──────────────────────────────────────────────────
+  function dist(a, b) { return Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2); }
+  function ear6(lm, t, b, l, r, t2, b2) {
+    return (dist(lm[t],lm[b]) + dist(lm[t2],lm[b2])) / (2 * dist(lm[l],lm[r]));
+  }
+  function getEAR(lm) {
+    return (ear6(lm,159,145,33,133,160,144) + ear6(lm,386,374,362,263,387,373)) / 2;
+  }
+
+  // ── フレーム送信ループ ───────────────────────────────────────
+  // faceMeshは再代入されることがあるため、都度クロージャではなく変数を直接参照する
+  async function frameLoop() {
+    if (faceMesh && video.readyState >= 2) {
+      try {
+        await faceMesh.send({image: video}); // 完了を待ってから次のフレームを送る（重複呼び出しで検出が止まるのを防ぐ）
+      } catch (e) { /* 一時的な送信エラーは無視して継続 */ }
+    }
+    frameLoopId = requestAnimationFrame(frameLoop);
+  }
+
+  // ── FaceMesh 初期化 ──────────────────────────────────────────
+  async function startCamera() {
+    if (cameraRunning) return;
+    $('btn-camera-start').disabled = true;
+    try {
+      // すでに許可済みのストリームがあれば使い回し、再度の許可ダイアログを避ける
+      if (!mediaStream || !mediaStream.active) {
+        mediaStream = await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'}});
+      }
+      video.srcObject = mediaStream;
+      await video.play();
+      video.style.display = 'block';
+      $('camera-idle').style.display = 'none';
+
+      faceMesh = new FaceMesh({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
+      faceMesh.setOptions({maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:.5, minTrackingConfidence:.5});
+      faceMesh.onResults(onFaceResult);
+
+      if (frameLoopId === null) { frameLoopId = requestAnimationFrame(frameLoop); }
+
+      cameraRunning = true;
+      $('cam-dot').className = 'cam-dot ok';
+      $('cam-status').textContent = 'カメラ接続中 — 顔を正面に向けてください';
+      document.body.classList.add('cam-on');
+
+      toast('カメラ起動完了');
+      onCameraReady();
+    } catch(err) {
+      alert('カメラへのアクセスが拒否されました。\nブラウザの設定でカメラ許可を有効にしてください。');
+      $('btn-camera-start').disabled = false;
+    }
+  }
+
+  // ── 目の位置（顔検出）を再検出する ──────────────────────────
+  // 注意: フレーム送信ループ(frameLoop)は止めない。stop→startすると内部でgetUserMediaが
+  // 再度呼ばれ、ブラウザの許可ダイアログが毎回表示されてしまうため、
+  // FaceMeshインスタンスのみを作り直す。
+  async function resetEyeTracking() {
+    if (!cameraRunning) { toast('先にカメラを起動してください'); return; }
+    blinkFrames = 0; isEyeClosed = false;
+    try {
+      if (faceMesh) { faceMesh.close(); faceMesh = null; }
+
+      faceMesh = new FaceMesh({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
+      faceMesh.setOptions({maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:.5, minTrackingConfidence:.5});
+      faceMesh.onResults(onFaceResult);
+      // frameLoopはfaceMesh変数を直接参照しているため、
+      // 上で再代入するだけで次フレームから新しいFaceMeshが使われる
+
+      toast('目の位置を再検出しました');
+    } catch(err) {
+      toast('再検出に失敗しました — もう一度お試しください');
+    }
+  }
+
+
+  // ── FaceMesh結果処理 ─────────────────────────────────────────
+  function onFaceResult(results) {
+    const w = overlay.width  = video.videoWidth  || 640;
+    const h = overlay.height = video.videoHeight || 480;
+    ctx.clearRect(0, 0, w, h);
+    if (Math.abs(w / h - camAspect) > 0.01) { camAspect = w / h; fitCamera(); }
+
+    if (!results.multiFaceLandmarks?.length) {
+      trackFace(false);
+      $('cam-dot').className = 'cam-dot warn';
+      $('cam-status').textContent = '顔が検出されていません';
+      $('ear-live-val').textContent = '—';
+      return;
+    }
+    trackFace(true);
+    $('cam-dot').className = 'cam-dot ok';
+    $('cam-status').textContent = '顔を検出中 ✓';
+
+    const lm  = results.multiFaceLandmarks[0];
+    const ear = getEAR(lm);
+
+    // EARバー更新（メニュー用）
+    const earPct = Math.min(Math.max((ear - 0.10) / 0.30 * 100, 0), 100);
+    $('ear-bar').style.width = earPct + '%';
+    $('ear-bar').style.background = ear < cfg.earThreshold ? 'var(--danger)' : 'var(--ok)';
+    $('ear-live-val').textContent = ear.toFixed(3);
+
+    // 目のランドマーク描画
+    [[159,145,33,133,160,144],[386,374,362,263,387,373]].forEach(idx => {
+      idx.forEach(i => {
+        ctx.beginPath();
+        ctx.arc(lm[i].x*w, lm[i].y*h, 3, 0, Math.PI*2);
+        ctx.fillStyle = ear < cfg.earThreshold ? 'rgba(255,45,85,.8)' : 'rgba(0,240,255,.7)';
+        ctx.fill();
+      });
+    });
+
+    // 瞬き検出
+    if (ear < cfg.earThreshold) {
+      blinkFrames++;
+      isEyeClosed = true;
+    } else {
+      if (isEyeClosed && blinkFrames >= cfg.minFrames) {
+        // 瞬き確定
+        onBlinkDetected();
+      }
+      blinkFrames = 0;
+      isEyeClosed = false;
+    }
+  }
+
+  // ── カメラ枠を「空き領域に収まる最大サイズ」にする（スクロールさせない）──
+  let camAspect = 4 / 3;
+  function fitCamera() {
+    const wrap = $('cam-wrap'), card = $('camera-card');
+    const W = wrap.clientWidth, H = wrap.clientHeight;
+    if (!W || !H) return;
+    const w = Math.min(W, H * camAspect);
+    card.style.width  = Math.floor(w) + 'px';
+    card.style.height = Math.floor(w / camAspect) + 'px';
+  }
+  new ResizeObserver(fitCamera).observe($('cam-wrap'));
+  window.addEventListener('resize', fitCamera);
+  fitCamera();
+
+  // 送信先の設定状況を最初の画面に表示（設定ミスの確認用）
+  $('upload-status').textContent = UPLOAD_URL
+    ? '// データ送信: 設定済み（計測終了時にGoogleへ送信）'
+    : '// データ送信: 未設定（計測終了時にこのPCへ保存）';
+
+  // ============================================================
+  //  画面遷移 / しきい値
+  // ============================================================
+  let stage = 'welcome';          // 'welcome' | 'input' | 'test' | 'measure'
+  let thresholdSource = null;     // 'test' | 'manual'
+
+  function setStage(s) { stage = s; document.body.dataset.stage = s; }
+
+  // メニューのスライダー経由でcfgと表示を同期する
+  function setThreshold(v) {
+    const s = $('ear-slider');
+    s.value = v;
+    s.dispatchEvent(new Event('input'));
+  }
+
+  function onBlinkDetected() {
+    if (stage === 'test') {
+      if (testState === 'running') testCount++;
+    } else if (stage === 'measure' && measuring) {
+      blinkTimes.push(secSince(Date.now()));
+    }
+  }
+
+  function onCameraReady() {
+    if (stage === 'test' && testState === 'idle') startTestFlow();
+    if (stage === 'measure') $('meas-btn-main').disabled = false;
+  }
+
+  // ============================================================
+  //  しきい値テスト
+  // ============================================================
+  const TEST = {
+    start: 0.10,        // テスト開始しきい値
+    step: 0.10,         // 5回未満のときの加算量
+    max: 0.40,          // 上限（これ以上は上げない）
+    target: 5,          // 瞬きしてもらう回数
+    countdownSec: 3,    // 開始前カウントダウン
+    autoJudgeSec: 20,   // 「判定する」が押されない場合の自動判定
+    pauseMs: 3000,      // 結果表示→次のテストまでの待ち時間
+  };
+  let testThr = TEST.start;
+  let testState = 'idle';   // 'idle' | 'countdown' | 'running' | 'judging' | 'done'
+  let testCount = 0;
+  let testTimers = [];
+  // 探索の記録：testLo=5回未満だった最大のしきい値 / testHi=6回以上が続いた最小のしきい値
+  let testLo = 0, testHi = Infinity, testOverStreak = 0;
+  const r2 = x => Math.round(x * 100) / 100;
+
+  function clearTestTimers() {
+    testTimers.forEach(t => { clearTimeout(t); clearInterval(t); });
+    testTimers = [];
+  }
+
+  function showTestView(view) {   // 'run' | 'done'
+    $('test-run').style.display  = view === 'run'  ? 'block' : 'none';
+    $('test-done').style.display = view === 'done' ? 'block' : 'none';
+  }
+
+  function enterTest() {
+    setStage('test');
+    clearTestTimers();
+    testState = 'idle';
+    showTestView('run');
+    $('test-thr-val').textContent = TEST.start.toFixed(2);
+    $('test-msg').textContent = 'カメラを起動しています…';
+    $('test-sub').textContent = '';
+    $('btn-test-judge').disabled = true;
+    if (cameraRunning) startTestFlow(); else startCamera();
+  }
+
+  function abortTest() {
+    clearTestTimers();
+    testState = 'idle';
+  }
+
+  function startTestFlow() {
+    testThr = TEST.start;
+    testLo = 0; testHi = Infinity; testOverStreak = 0;
+    showTestView('run');
+    runTrial();
+  }
+
+  function runTrial() {
+    clearTestTimers();
+    setThreshold(testThr);
+    $('test-thr-val').textContent = testThr.toFixed(2);
+    testState = 'countdown';
+    testCount = 0; blinkFrames = 0; isEyeClosed = false;
+    $('btn-test-judge').disabled = true;
+
+    let n = TEST.countdownSec;
+    const tick = () => {
+      if (n > 0) {
+        $('test-msg').textContent = `まもなく開始します… ${n}`;
+        $('test-sub').textContent = 'カメラに顔を向けてお待ちください';
+        n--;
+        testTimers.push(setTimeout(tick, 1000));
+      } else {
+        testState = 'running';
+        testCount = 0; blinkFrames = 0; isEyeClosed = false;
+        $('test-msg').textContent = `${TEST.target}回 瞬きしてください`;
+        $('test-sub').textContent = `瞬きし終わったら「判定する」ボタンか Space キーを押してください（${TEST.autoJudgeSec}秒で自動判定）`;
+        $('btn-test-judge').disabled = false;
+        testTimers.push(setTimeout(judgeTrial, TEST.autoJudgeSec * 1000));
+      }
+    };
+    tick();
+  }
+
+  function judgeTrial() {
+    if (testState !== 'running') return;
+    clearTestTimers();
+    testState = 'judging';
+    $('btn-test-judge').disabled = true;
+
+    const c = testCount;
+    if (c === TEST.target) { finishTest(); return; }
+
+    let next = testThr, detail;
+    if (c < TEST.target) {
+      // 5回未満：しきい値が低すぎる
+      testOverStreak = 0;
+      testLo = Math.max(testLo, testThr);
+      if (testLo >= testHi) testHi = Infinity;          // 食い違った古い記録は捨てる
+      if (isFinite(testHi)) {
+        // 「高すぎた値」が分かっているときは、その手前の間を少しずつ探す
+        const mid = r2((testLo + testHi) / 2);
+        if (mid > testLo && mid < testHi) {
+          next = mid;
+          detail = `${TEST.target}回未満でした。しきい値を ${next.toFixed(2)} に少し上げてもう一度テストします`;
+        } else {
+          detail = `${TEST.target}回未満でした。同じしきい値 ${testThr.toFixed(2)} でもう一度テストします`;
+        }
+      } else if (testThr >= TEST.max) {
+        detail = `しきい値が上限（${TEST.max.toFixed(2)}）のため、同じ値でもう一度テストします。顔の向きや明るさを確認してください`;
+      } else {
+        next = r2(testThr + TEST.step);
+        detail = `${TEST.target}回未満でした。しきい値を ${next.toFixed(2)} に上げてもう一度テストします`;
+      }
+    } else {
+      // 6回以上：1回目は同じ値でやり直し、2回続いたらしきい値が高すぎると判断して少し下げる
+      testOverStreak++;
+      if (testOverStreak < 2) {
+        detail = `${TEST.target + 1}回以上検出しました。同じしきい値 ${testThr.toFixed(2)} でもう一度テストします`;
+      } else {
+        testOverStreak = 0;
+        testHi = Math.min(testHi, testThr);
+        if (testLo >= testHi) testLo = 0;               // 食い違った古い記録は捨てる
+        if (testLo > 0) {
+          // 5回未満だった値と、6回以上が続いた値のちょうど中間へ
+          const mid = r2((testLo + testHi) / 2);
+          next = (mid > testLo && mid < testHi) ? mid : testThr;
+        } else {
+          next = Math.max(0.05, r2(testThr - 0.02));    // 目安がないときは0.02ずつ下げる
+        }
+        detail = next < testThr
+          ? `${TEST.target + 1}回以上が続いたため、しきい値が高すぎるようです。${next.toFixed(2)} に下げてもう一度テストします`
+          : `${TEST.target + 1}回以上が続きました。同じしきい値 ${testThr.toFixed(2)} でもう一度テストします`;
+      }
+    }
+    $('test-msg').textContent = `検出 ${c}回`;
+    $('test-sub').textContent = detail;
+    testTimers.push(setTimeout(() => { testThr = next; runTrial(); }, TEST.pauseMs));
+  }
+
+  function finishTest() {
+    testState = 'done';
+    thresholdSource = 'test';
+    $('test-result-thr').textContent = testThr.toFixed(2);
+    showTestView('done');
+  }
+
+  // ============================================================
+  //  しきい値入力（2回目以降）
+  // ============================================================
+  const THR_MIN = 0.05, THR_MAX = 0.60;
+
+  $('thr-number').addEventListener('input', e => {
+    const v = parseFloat(e.target.value);
+    if (!isNaN(v) && v >= THR_MIN && v <= THR_MAX) $('thr-range').value = v;
+  });
+  $('thr-range').addEventListener('input', e => {
+    $('thr-number').value = (+e.target.value).toFixed(2);
+  });
+
+  // ============================================================
+  //  計測
+  // ============================================================
+  let measuring = false, measStart = null, measTimer = null;
+  let blinkTimes = [];
+  const evLog = { break: { list: [], open: null }, away: { list: [], open: null } };
+  const EV_UI = {
+    break: { btn: 'meas-btn-break', label: 'label-break', name: '休憩', on: '休憩終了', off: '休憩開始' },
+    away:  { btn: 'meas-btn-away',  label: 'label-away',  name: '離席', on: '離席終了', off: '離席開始' },
+  };
+
+  const secSince = t => Number(((t - measStart) / 1000).toFixed(3));
+
+  // ── 顔（目）を検出できていなかった区間の記録 ──────────────
+  // 顔が LOST_MIN_MS 以上連続で見えなかった区間だけを「未検出」として数える
+  const LOST_MIN_MS = 300;
+  let lostSince = null;
+  let undetectedIntervals = [];
+
+  function closeLost(now) {
+    if (lostSince !== null && now - lostSince >= LOST_MIN_MS) {
+      const startSec = secSince(lostSince), endSec = secSince(now);
+      undetectedIntervals.push({ startSec, endSec, durationSec: Number((endSec - startSec).toFixed(3)) });
+    }
+    lostSince = null;
+  }
+  function trackFace(found) {
+    if (stage !== 'measure' || !measuring) return;
+    const now = Date.now();
+    if (!found) { if (lostSince === null) lostSince = now; }
+    else if (lostSince !== null) closeLost(now);
+  }
+
+  function enterMeasure() {
+    setStage('measure');
+    $('meas-thr').textContent = cfg.earThreshold.toFixed(2);
+    $('meas-btn-main').disabled = !cameraRunning;
+    if (!cameraRunning) startCamera();
+  }
+
+  function startMeasure() {
+    if (!cameraRunning) { toast('先にカメラを起動してください'); return; }
+    measuring = true;
+    measStart = Date.now();
+    blinkTimes = [];
+    lostSince = null; undetectedIntervals = [];
+    blinkFrames = 0; isEyeClosed = false;
+    evLog.break = { list: [], open: null };
+    evLog.away  = { list: [], open: null };
+
+    $('meas-btn-main').classList.add('measuring');
+    $('label-main').textContent = '計測終了';
+    $('meas-btn-break').disabled = false;
+    $('meas-btn-away').disabled  = false;
+    $('btn-back-start').disabled = true;
+
+    measTimer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - measStart) / 1000);
+      $('timer-main').textContent =
+        String(Math.floor(elapsed / 60)).padStart(2, '0') + ':' + String(elapsed % 60).padStart(2, '0');
+    }, 500);
+
+    toast('計測開始');
+  }
+
+  function resetEventUI(kind) {
+    const ui = EV_UI[kind];
+    $(ui.btn).classList.remove('measuring');
+    $(ui.label).textContent = ui.off;
+  }
+
+  function closeEvent(kind, now, auto) {
+    const log = evLog[kind];
+    const rec = { ...log.open, endedAt: new Date(now).toISOString(), endSec: secSince(now) };
+    rec.durationSec = Number((rec.endSec - rec.startSec).toFixed(3));
+    if (auto) rec.closedByMeasurementEnd = true;
+    log.list.push(rec);
+    log.open = null;
+    resetEventUI(kind);
+  }
+
+  // 休憩・離席：1回目で開始、2回目で終了を記録（効果はJSONへの記録のみ）
+  function toggleEvent(kind) {
+    if (!measuring) return;
+    const log = evLog[kind], ui = EV_UI[kind], now = Date.now();
+    if (log.open === null) {
+      log.open = { startedAt: new Date(now).toISOString(), startSec: secSince(now) };
+      $(ui.btn).classList.add('measuring');
+      $(ui.label).textContent = ui.on;
+      toast(`${ui.name}開始を記録`);
+    } else {
+      closeEvent(kind, now, false);
+      toast(`${ui.name}終了を記録`);
+    }
+  }
+
+  function stopMeasure() {
+    const now = Date.now();
+    ['break', 'away'].forEach(k => { if (evLog[k].open) closeEvent(k, now, true); });
+    closeLost(now);
+    clearInterval(measTimer);
+    measuring = false;
+
+    const durSec = Number(((now - measStart) / 1000).toFixed(3));
+    const undetSec = Number(undetectedIntervals.reduce((a, x) => a + x.durationSec, 0).toFixed(3));
+    const detSec = Number((durSec - undetSec).toFixed(3));   // 顔を検出できていた時間
+    const d = new Date(now);
+    const p2 = n => String(n).padStart(2, '0');
+    const filename = `mabataki_data_${p2(d.getMonth() + 1)}_${p2(d.getDate())}_${p2(d.getHours())}_${p2(d.getMinutes())}_${p2(d.getSeconds())}_${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}.json`;
+
+    const data = {
+      savedAt: d.toISOString(),
+      earThreshold: cfg.earThreshold,
+      thresholdSource,                       // 'test' = テストで決定 / 'manual' = 手入力
+      minFrames: cfg.minFrames,
+      measurement: {
+        startedAt: new Date(measStart).toISOString(),
+        endedAt: d.toISOString(),
+        durationSec: durSec,                 // 計測開始〜終了の全時間
+        detectedDurationSec: detSec,         // うち、顔(目)を検出できていた時間
+        undetectedDurationSec: undetSec,     // 検出できていなかった時間の合計
+        undetectedIntervals,                 // 検出できなかった区間（開始・終了：計測開始からの秒）
+        blinkCount: blinkTimes.length,
+        blinksPerMinute: durSec > 0 ? Number((blinkTimes.length / (durSec / 60)).toFixed(2)) : null,
+        blinksPerMinuteDetected: detSec > 0 ? Number((blinkTimes.length / (detSec / 60)).toFixed(2)) : null,  // 検出時間だけで割った値
+        // 瞬き1回ごとの時刻：計測開始から何秒後か（小数第3位＝ミリ秒まで）
+        blinkTimestampsSec: blinkTimes,
+      },
+      breaks: evLog.break.list,              // 休憩の開始・終了
+      aways: evLog.away.list,                // 離席の開始・終了
+    };
+    // UIを計測前の状態に戻す
+    $('meas-btn-main').classList.remove('measuring');
+    $('label-main').textContent = '計測開始';
+    $('timer-main').textContent = '00:00';
+    $('meas-btn-break').disabled = true;
+    $('meas-btn-away').disabled  = true;
+    $('btn-back-start').disabled = false;
+
+    // 送信（失敗時はこのPCに保存）。送信中は操作できないようにする
+    $('meas-btn-main').disabled = true;
+    $('btn-back-start').disabled = true;
+    deliverData(data, filename).finally(() => {
+      $('meas-btn-main').disabled = !cameraRunning;
+      $('btn-back-start').disabled = false;
+    });
+  }
+
+  // ── データの保存・送信 ───────────────────────────────────────
+  function downloadLocal(data, filename) {
+    const a = document.createElement('a');
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // 戻り値: { ok: true } または { ok: false, reason: '原因' }
+  async function sendToServer(data, filename) {
+    let reason = '';
+    for (let i = 0; i < UPLOAD_RETRIES; i++) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), UPLOAD_TIMEOUT_MS);
+      try {
+        // ヘッダーを付けない（text/plain）ことでCORSのプリフライトを避ける
+        const res = await fetch(UPLOAD_URL, {
+          method: 'POST',
+          body: JSON.stringify({ token: UPLOAD_TOKEN, fileName: filename, data }),
+          signal: ctrl.signal,
+        });
+        let json = null;
+        try { json = await res.json(); }
+        catch (e) { reason = '応答がJSONではありません（デプロイの「アクセスできるユーザー」が「全員」か、URLが/execで終わるか確認）'; }
+        if (json) {
+          if (json.ok === true) return { ok: true };
+          reason = 'サーバーのエラー: ' + (json.error || '不明');
+        }
+      } catch (e) {
+        reason = e.name === 'AbortError' ? `${UPLOAD_TIMEOUT_MS / 1000}秒以内に応答がありませんでした` : '通信エラー: ' + e.message;
+      }
+      finally { clearTimeout(timer); }
+    }
+    console.error('送信失敗:', reason);
+    return { ok: false, reason };
+  }
+
+  async function deliverData(data, filename) {
+    if (!UPLOAD_URL) {
+      downloadLocal(data, filename);
+      toast(`保存しました: ${filename}`);
+      return;
+    }
+    toast('データを送信中です…そのままお待ちください', 60000);
+    const result = await sendToServer(data, filename);
+    if (result.ok) {
+      toast('送信しました。お疲れさまでした', 5000);
+    } else {
+      downloadLocal(data, filename);
+      toast(`送信できなかったため、このPCに保存しました（原因: ${result.reason}）`, 15000);
+    }
+  }
+
+  // ============================================================
+  //  ボタン配線
+  // ============================================================
+  $('btn-camera-start').addEventListener('click', startCamera);
+  $('btn-eye-reset').addEventListener('click', resetEyeTracking);
+
+  $('btn-first-yes').addEventListener('click', enterTest);
+  $('btn-first-no').addEventListener('click', () => setStage('input'));
+
+  $('btn-input-back').addEventListener('click', () => setStage('welcome'));
+  $('btn-input-go').addEventListener('click', () => {
+    const v = parseFloat($('thr-number').value);
+    if (isNaN(v) || v < THR_MIN || v > THR_MAX) {
+      toast(`しきい値は ${THR_MIN.toFixed(2)}〜${THR_MAX.toFixed(2)} の範囲で入力してください`);
+      return;
+    }
+    thresholdSource = 'manual';
+    setThreshold(v);
+    enterMeasure();
+  });
+
+  $('btn-test-judge').addEventListener('click', judgeTrial);
+  $('btn-test-go').addEventListener('click', enterMeasure);
+  $('btn-test-back').addEventListener('click', () => { abortTest(); setStage('welcome'); });
+
+  $('meas-btn-main').addEventListener('click', () => { measuring ? stopMeasure() : startMeasure(); });
+  $('meas-btn-break').addEventListener('click', () => toggleEvent('break'));
+  $('meas-btn-away').addEventListener('click', () => toggleEvent('away'));
+  $('btn-back-start').addEventListener('click', () => { if (!measuring) setStage('welcome'); });
+
+  // ボタンをクリックした後にフォーカスを外す（Space/Enterキーでの二重動作を防ぐ）
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('button');
+    if (b) b.blur();
+  });
+
+  // ── キーボードショートカット（[1]=休憩 / [2]=離席 / Space=テスト中は判定・計測中は目の位置リセット）──
+  document.addEventListener('keydown', e => {
+    if (e.repeat) return;
+    if (stage !== 'measure' && stage !== 'test') return;
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (stage === 'measure' && e.key === '1') toggleEvent('break');
+    else if (stage === 'measure' && e.key === '2') toggleEvent('away');
+    else if (e.code === 'Space') {
+      e.preventDefault();
+      if (stage === 'test') judgeTrial();          // しきい値テスト：判定する
+      else resetEyeTracking();                     // 計測画面：目の位置リセット
+    }
+  });
+
+  // ── メニュー制御 ─────────────────────────────────────────────
+  const menuBtn     = $('menu-btn');
+  const menuPanel   = $('menu-panel');
+  const menuOverlay = $('menu-overlay');
+
+  function openMenu() {
+    menuBtn.classList.add('open');
+    menuPanel.classList.add('open');
+    menuOverlay.classList.add('show');
+  }
+  function closeMenu() {
+    menuBtn.classList.remove('open');
+    menuPanel.classList.remove('open');
+    menuOverlay.classList.remove('show');
+  }
+  menuBtn.addEventListener('click', () => {
+    menuPanel.classList.contains('open') ? closeMenu() : openMenu();
+  });
+  menuOverlay.addEventListener('click', closeMenu);
+
+  // ── 感度ボタン ───────────────────────────────────────────────
+  const SENS_PRESETS = [
+    {ear:0.13, desc:'低め — まぶたが大きく動いたときだけ反応します'},
+    {ear:0.17, desc:'やや低め — しっかり目を閉じると反応します'},
+    {ear:0.20, desc:'標準 — 通常の瞬きで反応します'},
+    {ear:0.24, desc:'やや高め — 浅い瞬きでも反応しやすくなります'},
+    {ear:0.30, desc:'高め — 少し目を細めるだけで反応します'},
+  ];
+
+  document.querySelectorAll('.sens-btn').forEach((btn, i) => {
+    btn.addEventListener('click', () => {
+      cfg.earThreshold = SENS_PRESETS[i].ear;
+      $('ear-slider').value    = cfg.earThreshold;
+      $('ear-val-txt').textContent = cfg.earThreshold.toFixed(2);
+      $('sens-desc').textContent   = SENS_PRESETS[i].desc;
+      document.querySelectorAll('.sens-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  $('ear-slider').addEventListener('input', e => {
+    cfg.earThreshold = +e.target.value;
+    $('ear-val-txt').textContent = cfg.earThreshold.toFixed(2);
+    // 最近傍ボタンをアクティブに
+    let bestIdx = 0, bestDist = Infinity;
+    SENS_PRESETS.forEach((p,i) => {
+      const d = Math.abs(p.ear - cfg.earThreshold);
+      if (d < bestDist) { bestDist=d; bestIdx=i; }
+    });
+    document.querySelectorAll('.sens-btn').forEach((b,i) => b.classList.toggle('active', i===bestIdx));
+    $('sens-desc').textContent = SENS_PRESETS[bestIdx].desc;
+  });
+
+  $('minframe-slider').addEventListener('input', e => {
+    cfg.minFrames = +e.target.value;
+    $('minframe-val').textContent = cfg.minFrames;
+  });
+
+  // ── toast ────────────────────────────────────────────────────
+  let toastTimer = null;
+  function toast(msg, ms = 2400) {
+    const el = $('toast');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+  }
+  </script>
+</body>
+</html>
