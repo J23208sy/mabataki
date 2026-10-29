@@ -483,7 +483,7 @@
       background: var(--surface2); color: var(--text-dim);
       font-family: var(--font-mono); font-size: 12px; line-height: 1.8;
     }
-    .camera-card.preview-hidden video, .camera-card.preview-hidden canvas { display: none !important; }
+    .camera-card.preview-hidden video, .camera-card.preview-hidden canvas { visibility: hidden; }
     .camera-card.preview-hidden .preview-cover { display: flex; }
     .cam-status-bar { z-index: 2; }
 
@@ -637,8 +637,8 @@
       <div class="menu-section">
         <div class="menu-section-title">その他の検出設定 — 管理者</div>
         <div class="setting-row">
-          <label>最小閉眼時間 <span class="val"><span id="minclosed-val">60</span> ms</span></label>
-          <input type="range" id="minclosed-slider" min="20" max="200" step="10" value="60">
+          <label>最小閉眼時間 <span class="val"><span id="minclosed-val">30</span> ms</span></label>
+          <input type="range" id="minclosed-slider" min="10" max="200" step="10" value="30">
         </div>
         <div class="hint">この時間より短い目の閉じは、瞬きに数えません。処理が遅い（fpsが低い）端末では、短すぎると取りこぼします。</div>
         <div class="setting-row" style="margin-top:14px">
@@ -866,7 +866,7 @@
   const PENDING_KEY = 'blink_pending_v1', LAST_THR_KEY = 'blink_last_thr_v1',
         THR_BY_ID_KEY = 'blink_thr_by_id_v1', HIDE_KEY = 'blink_opt_hide_v2';
 
-  let cfg = { earThreshold: 0.25, minClosedMs: 60, maxFps: 30 };
+  let cfg = { earThreshold: 0.25, minClosedMs: 30, maxFps: 30 };
   const ADMIN = new URLSearchParams(location.search).has('admin');
   if (ADMIN) document.body.classList.add('admin');
 
@@ -931,19 +931,33 @@
 
   function createFaceMesh() {
     faceMesh = new FaceMesh({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${LIB_VERSIONS.faceMesh}/${f}` });
-    faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: .5, minTrackingConfidence: .5 });
+    // refineLandmarks は必ず true：まぶたの動きの精度に必要（false にすると目を閉じてもEARが下がらず、瞬きを検出できなくなる）
+    faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: .5, minTrackingConfidence: .5 });
     faceMesh.onResults(onFaceResult);
+    const fm = faceMesh;
+    setStatus('ok', '顔認識を準備しています…（初回は少し時間がかかります）');
+    if (typeof fm.initialize === 'function') fm.initialize().catch(() => {
+      if (faceMesh === fm) setStatus('warn', '顔認識を読み込めません。ネットワークを確認して、ページを開き直してください');
+    });
   }
 
   // フレーム送信ループ（faceMeshは再代入されることがあるので変数を直接参照する）
-  // 軽量化：①カメラの新しいフレームが来たときだけ処理する（画面の更新が60〜144Hzでも、同じ映像を何度も処理しない）
-  //         ②処理回数に上限をかける（既定30回/秒）
-  let lastVideoTime = -1, lastSentAt = 0;
+  // 軽量化：①カメラの新しいフレームが届いたときだけ処理する（画面の更新が60〜144Hzでも、同じ映像を何度も処理しない）
+  //         ②処理回数に上限をかける（既定30回/秒）  ③顔認識が不要な画面（最初・入力・終了）では処理しない
+  // requestVideoFrameCallback が使えない環境や、通知が250ms来ないときは、上限の範囲で処理を続ける（検出が止まらないための保険）
+  const hasRvfc = typeof video.requestVideoFrameCallback === 'function';
+  let frameReady = true, lastRvfcAt = 0, rvfcArmed = false, lastSentAt = 0, sendErrors = 0;
+  function armFrameCallback() {
+    video.requestVideoFrameCallback(() => { frameReady = true; lastRvfcAt = performance.now(); armFrameCallback(); });
+  }
   async function frameLoop() {
     const now = performance.now();
-    if (faceMesh && video.readyState >= 2 && video.currentTime !== lastVideoTime && now - lastSentAt >= 1000 / cfg.maxFps - 3) {
-      lastVideoTime = video.currentTime; lastSentAt = now;
-      try { await faceMesh.send({ image: video }); } catch (e) { /* 一時的なエラーは無視 */ }
+    const newFrame = !hasRvfc || frameReady || now - lastRvfcAt > 250;
+    if (faceMesh && video.readyState >= 2 && newFrame && (stage === 'test' || stage === 'measure')
+        && now - lastSentAt >= 1000 / cfg.maxFps - 3) {
+      lastSentAt = now; frameReady = false;
+      try { await faceMesh.send({ image: video }); sendErrors = 0; }
+      catch (e) { if (++sendErrors === 10) setStatus('warn', '顔認識がうまく動いていません。ページを開き直してください'); }
     }
     frameLoopId = requestAnimationFrame(frameLoop);
   }
@@ -960,6 +974,7 @@
       }
       video.srcObject = mediaStream;
       await video.play();
+      if (hasRvfc && !rvfcArmed) { rvfcArmed = true; armFrameCallback(); }
       video.style.display = 'block';
       $('camera-idle').style.display = 'none';
 
@@ -968,6 +983,7 @@
       camInfo = { label: track.label || '', width: st.width || null, height: st.height || null, frameRate: st.frameRate || null };
       track.addEventListener('ended', onCameraLost);
 
+      if (typeof FaceMesh === 'undefined') { const er = new Error('facemesh-missing'); er.name = 'FaceMeshMissing'; throw er; }
       if (!faceMesh) createFaceMesh();
       if (frameLoopId === null) frameLoopId = requestAnimationFrame(frameLoop);
 
@@ -978,8 +994,25 @@
       toast('カメラ起動完了');
       onCameraReady();
     } catch (err) {
-      alert('カメラへのアクセスが拒否されました。\nブラウザの設定でカメラ許可を有効にしてください。');
       $('btn-camera-start').disabled = false;
+      alert(cameraErrorMessage(err));
+    }
+  }
+
+  function cameraErrorMessage(err) {
+    switch (err && err.name) {
+      case 'NotAllowedError': case 'SecurityError':
+        return 'カメラの使用が許可されていません。\nブラウザのアドレス欄のカメラの設定を「許可」にしてください。';
+      case 'NotFoundError': case 'DevicesNotFoundError':
+        return 'カメラが見つかりません。カメラが接続されているか確認してください。';
+      case 'NotReadableError': case 'TrackStartError':
+        return 'カメラを使えません。ほかのアプリ（Zoom・Teamsなど）がカメラを使っていないか確認してください。';
+      case 'OverconstrainedError':
+        return 'このカメラでは指定の設定が使えません。メニューから別のカメラを選んでください。';
+      case 'FaceMeshMissing':
+        return '顔認識の部品を読み込めませんでした。インターネットに接続されているか確認して、ページを開き直してください。';
+      default:
+        return 'カメラを起動できませんでした。\n（' + ((err && err.name) || '不明') + '）';
     }
   }
 
@@ -1068,7 +1101,7 @@
   // ============================================================
   //  フレームごとの処理
   // ============================================================
-  let lastFrameAt = 0, prevFrameT = 0;
+  let lastFrameAt = 0, prevFrameT = 0, canvasDirty = false;
   let fpsWinStart = 0, fpsWinCount = 0, liveFps = 0;
   let brightness = null;
   let liveEar = null, liveFaceW = null;
@@ -1115,14 +1148,14 @@
     trackFps(t);
     if (measuring) quality.frames++;
     if (gap > 500) resetBlinkState();                       // 処理が止まった前後をまたいで瞬きを数えない
-    if (measuring && gap > STALL.noteMs) events.push({ atSec: rel(prevFrameT), type: 'frame_stall', durationSec: r3(gap / 1000) });
+    if (measuring && gap > STALL.noteMs && events.length < 500) events.push({ atSec: rel(prevFrameT), type: 'frame_stall', durationSec: r3(gap / 1000) });
     prevFrameT = t;
 
     const showVideo = !(measuring && previewHidden());
     const w = video.videoWidth  || 640;
     const h = video.videoHeight || 480;
     if (overlay.width !== w || overlay.height !== h) { overlay.width = w; overlay.height = h; }
-    ctx.clearRect(0, 0, w, h);
+    if (canvasDirty) { ctx.clearRect(0, 0, w, h); canvasDirty = false; }
     if (Math.abs(w / h - camAspect) > 0.01) { camAspect = w / h; fitCamera(); }
 
     if (!results.multiFaceLandmarks?.length) {
@@ -1176,6 +1209,7 @@
           ctx.fill();
         });
       });
+      canvasDirty = true;
     }
 
     processEar(t, e);
@@ -1203,6 +1237,7 @@
   //  瞬き検出（ヒステリシス＋ミリ秒基準＋最短間隔）
   // ============================================================
   let eyeClosed = false, closeStartT = 0, ep = null, lastBlinkEndT = -1e9;
+  let openEma = null;   // 目を開けているときのEARの平均（ならした値）
   function resetBlinkState() { eyeClosed = false; ep = null; }
 
   function processEar(t, e) {
@@ -1210,13 +1245,17 @@
       if (e.avg < cfg.earThreshold) {
         eyeClosed = true; closeStartT = t;
         ep = { min: e.avg, minR: e.r, minL: e.l };
+      } else {
+        openEma = openEma === null ? e.avg : openEma * 0.98 + e.avg * 0.02;
       }
       return;
     }
     // 閉じている間：最小値を更新
     if (e.avg < ep.min) { ep.min = e.avg; ep.minR = e.r; ep.minL = e.l; }
-    // 開いた判定は、しきい値より少し高い値まで戻ったとき（細かい揺れで2回に数えないため）
-    if (e.avg > cfg.earThreshold + DET.hysteresis) {
+    // 開いた判定は、しきい値より少し高い値まで戻ったとき（細かい揺れで2回に数えないため）。
+    // ただし、開眼時のEARとの差が小さい人でも「閉じたまま」にならないよう、その差の半分までに抑える
+    const gapOpen = openEma !== null ? Math.max(0, openEma - cfg.earThreshold) : DET.hysteresis * 2;
+    if (e.avg > cfg.earThreshold + Math.min(DET.hysteresis, gapOpen * 0.5)) {
       const durMs = t - closeStartT;
       eyeClosed = false;
       if (durMs >= cfg.minClosedMs && (closeStartT - lastBlinkEndT) >= DET.minIntervalMs) {
@@ -1287,7 +1326,7 @@
     setThreshold(testThr);
     $('test-thr-val').textContent = testThr.toFixed(2);
     testState = 'countdown';
-    testCount = 0; resetBlinkState();
+    testCount = 0; resetBlinkState(); openEma = null;
     $('btn-test-judge').disabled = true;
     let n = TEST.countdownSec;
     const tick = () => {
@@ -1552,7 +1591,7 @@
     quality = newQuality(); lastOp = null;
     evLog.break = { list: [], open: null }; evLog.away = { list: [], open: null };
     activityLog = [{ atSec: 0, ...activity, label: activityLabel(activity) }];
-    resetBlinkState(); lastBlinkEndT = -1e9;
+    resetBlinkState(); lastBlinkEndT = -1e9; openEma = null;
     lastFrameAt = measStartPerf; prevFrameT = 0;
     const pm = parseFloat($('opt-planned').value);
     plannedSec = (!isNaN(pm) && pm > 0) ? Math.round(pm * 60) : null;
