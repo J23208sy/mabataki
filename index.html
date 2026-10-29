@@ -580,6 +580,16 @@
         <input type="text" id="p-session" maxlength="20" autocomplete="off" placeholder="未入力でもOK">
       </div>
       <div class="field">
+        <label for="p-eyewear">眼鏡・コンタクトの使用</label>
+        <select id="p-eyewear">
+          <option value="">未回答</option>
+          <option value="なし（裸眼）">なし（裸眼）</option>
+          <option value="眼鏡">眼鏡</option>
+          <option value="コンタクトレンズ">コンタクトレンズ</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
+      <div class="field">
         <label for="p-memo">メモ</label>
         <textarea id="p-memo" rows="2" maxlength="300" placeholder="未入力でもOK"></textarea>
       </div>
@@ -935,10 +945,33 @@
     faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: .5, minTrackingConfidence: .5 });
     faceMesh.onResults(onFaceResult);
     const fm = faceMesh;
-    setStatus('ok', '顔認識を準備しています…（初回は少し時間がかかります）');
-    if (typeof fm.initialize === 'function') fm.initialize().catch(() => {
-      if (faceMesh === fm) setStatus('warn', '顔認識を読み込めません。ネットワークを確認して、ページを開き直してください');
-    });
+    fmReady = false; fmError = null;
+    setStatus('ok', '顔認識を準備しています…（初回は読み込みに時間がかかります）');
+    // 読み込み（initialize）が終わるまで、send() は呼ばない（同時に走らせると初期化が壊れる）
+    const init = typeof fm.initialize === 'function' ? fm.initialize() : Promise.resolve();
+    init.then(() => { if (faceMesh === fm) { fmReady = true; onFaceMeshReady(); } })
+        .catch(err => { if (faceMesh === fm) { fmError = err; onFaceMeshFailed(err); } });
+  }
+  let fmReady = false, fmError = null;
+  function onFaceMeshReady() {
+    if (cameraRunning) setStatus('ok', 'カメラ接続中 — 顔を正面に向けてください');
+    updateMeasureStart();
+    if (stage === 'test' && testState === 'idle' && cameraRunning) startTestFlow();
+  }
+  function onFaceMeshFailed(err) {
+    const why = (err && (err.message || err.name)) ? String(err.message || err.name).slice(0, 60) : '不明';
+    const msg = `顔認識を読み込めませんでした（${why}）。ネットワークを確認して、「目の位置をリセット」を押すか、ページを開き直してください`;
+    setStatus('warn', msg);
+    if (stage === 'test') { $('test-msg').textContent = '顔認識を読み込めませんでした'; $('test-sub').textContent = msg; }
+    updateMeasureStart();
+    console.error('FaceMesh初期化の失敗:', err);
+  }
+  // 計測開始ボタン：カメラと顔認識の準備ができるまで押せない
+  function updateMeasureStart() {
+    if (measuring) return;
+    const ready = cameraRunning && fmReady;
+    $('meas-btn-main').disabled = !ready;
+    $('label-main').textContent = (cameraRunning && !fmReady && !fmError) ? '顔認識を準備中…' : '計測開始';
   }
 
   // フレーム送信ループ（faceMeshは再代入されることがあるので変数を直接参照する）
@@ -953,11 +986,11 @@
   async function frameLoop() {
     const now = performance.now();
     const newFrame = !hasRvfc || frameReady || now - lastRvfcAt > 250;
-    if (faceMesh && video.readyState >= 2 && newFrame && (stage === 'test' || stage === 'measure')
+    if (faceMesh && fmReady && video.readyState >= 2 && newFrame && (stage === 'test' || stage === 'measure')
         && now - lastSentAt >= 1000 / cfg.maxFps - 3) {
       lastSentAt = now; frameReady = false;
       try { await faceMesh.send({ image: video }); sendErrors = 0; }
-      catch (e) { if (++sendErrors === 10) setStatus('warn', '顔認識がうまく動いていません。ページを開き直してください'); }
+      catch (e) { if (++sendErrors === 10) setStatus('warn', '顔認識がうまく動いていません（' + String((e && e.message) || e).slice(0, 50) + '）。ページを開き直してください'); }
     }
     frameLoopId = requestAnimationFrame(frameLoop);
   }
@@ -988,7 +1021,7 @@
       if (frameLoopId === null) frameLoopId = requestAnimationFrame(frameLoop);
 
       cameraRunning = true;
-      setStatus('ok', 'カメラ接続中 — 顔を正面に向けてください');
+      setStatus('ok', fmReady ? 'カメラ接続中 — 顔を正面に向けてください' : '顔認識を準備しています…（初回は読み込みに時間がかかります）');
       document.body.classList.add('cam-on');
       refreshCameraList();
       toast('カメラ起動完了');
@@ -1017,8 +1050,12 @@
   }
 
   function onCameraReady() {
-    if (stage === 'test' && testState === 'idle') startTestFlow();
-    if (stage === 'measure') $('meas-btn-main').disabled = false;
+    updateMeasureStart();
+    if (stage === 'test' && testState === 'idle') {
+      if (fmReady) startTestFlow();
+      else if (fmError) onFaceMeshFailed(fmError);
+      else { $('test-msg').textContent = '顔認識を準備しています…'; $('test-sub').textContent = '初回は読み込みに時間がかかります（数十秒かかることがあります）。そのままお待ちください'; }
+    }
   }
 
   // カメラが抜けた・使えなくなった
@@ -1200,7 +1237,7 @@
       $('ear-live-val').textContent = e.avg.toFixed(3);
     }
 
-    if (showVideo && (ADMIN || stage === 'test')) {
+    if (showVideo) {
       [[159,145,33,133,160,144],[386,374,362,263,387,373]].forEach(idx => {
         idx.forEach(i => {
           ctx.beginPath();
@@ -1310,7 +1347,7 @@
     $('test-msg').textContent = 'カメラを起動しています…';
     $('test-sub').textContent = '';
     $('btn-test-judge').disabled = true;
-    if (cameraRunning) startTestFlow(); else startCamera();
+    if (cameraRunning) onCameraReady(); else startCamera();
   }
   function abortTest() { clearTestTimers(); testState = 'idle'; }
 
@@ -1565,7 +1602,7 @@
     setStage('measure');
     $('meas-thr').textContent = cfg.earThreshold.toFixed(2);
     updateActivityBtn();
-    $('meas-btn-main').disabled = !cameraRunning;
+    updateMeasureStart();
     if (!cameraRunning) startCamera();
   }
 
@@ -1705,7 +1742,7 @@
       sessionId,
       savedAt: new Date().toISOString(),
       endReason: reason,    // user / scheduled / tab_hidden / stalled / camera_lost / page_closed
-      participant: { id: $('p-id').value.trim(), session: $('p-session').value.trim(), memo: $('p-memo').value.trim() },
+      participant: { id: $('p-id').value.trim(), session: $('p-session').value.trim(), eyewear: $('p-eyewear').value, memo: $('p-memo').value.trim() },
       consent: consentInfo,                    // 同意ボタンはなし。メニューに掲載していた同意文の版を記録
       environment: {
         userAgent: navigator.userAgent,
@@ -1791,7 +1828,7 @@
 
   // 停止の監視：画面が見えなくなる／処理が止まったら、止まった時点で計測を終了する
   setInterval(() => {
-    if (!measuring) return;
+    if (!measuring || !fmReady) return;
     const gap = performance.now() - lastFrameAt;
     if (document.hidden && gap >= STALL.hiddenMs) endMeasurement('tab_hidden', lastFrameAt);
     else if (gap >= STALL.visibleMs) endMeasurement('stalled', lastFrameAt);
@@ -1952,7 +1989,7 @@
 
   // 終了画面 → 最初の画面（次の人のために入力をリセット）
   $('btn-end-home').addEventListener('click', () => {
-    ['p-id', 'p-session', 'p-memo', 'opt-planned'].forEach(id => { $(id).value = ''; });
+    ['p-id', 'p-session', 'p-memo', 'p-eyewear', 'opt-planned'].forEach(id => { $(id).value = ''; });
     activity = { category: '', genre: '', gameName: '', detail: '' };
     updateActivityBtn();
     thresholdSource = null; testInfo = null;
