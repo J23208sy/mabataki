@@ -456,6 +456,8 @@
     .check { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-mid); cursor: pointer; }
     .check input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
     .hint { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); line-height: 1.6; margin-top: 6px; }
+    .tip-menu { color: var(--text-dim); }
+    #test-panel[data-view="done"] .tip:not(.tip-menu) { display: none; }
     .tip { font-size: 11px; color: var(--gold); line-height: 1.6; text-align: center; margin-bottom: 6px; }
     .welcome-tip { max-width: 460px; font-size: 12px; margin-bottom: 20px; }
 
@@ -580,16 +582,6 @@
         <input type="text" id="p-session" maxlength="20" autocomplete="off" placeholder="未入力でもOK">
       </div>
       <div class="field">
-        <label for="p-eyewear">眼鏡・コンタクトの使用</label>
-        <select id="p-eyewear">
-          <option value="">未回答</option>
-          <option value="なし（裸眼）">なし（裸眼）</option>
-          <option value="眼鏡">眼鏡</option>
-          <option value="コンタクトレンズ">コンタクトレンズ</option>
-          <option value="その他">その他</option>
-        </select>
-      </div>
-      <div class="field">
         <label for="p-memo">メモ</label>
         <textarea id="p-memo" rows="2" maxlength="300" placeholder="未入力でもOK"></textarea>
       </div>
@@ -615,24 +607,29 @@
       <div class="hint">外付けWebカメラを使うときは、ここで切り替えます（計測中は変更できません）。</div>
     </div>
 
+    <!-- 検出感度（しきい値）：全員に表示 -->
+    <div class="menu-section">
+      <div class="menu-section-title">検出感度（しきい値）</div>
+      <div class="sens-btns" id="sens-btns">
+        <button class="sens-btn" data-ear="0.13">低め</button>
+        <button class="sens-btn" data-ear="0.17">やや低め</button>
+        <button class="sens-btn" data-ear="0.20">標準</button>
+        <button class="sens-btn active" data-ear="0.24">やや高め</button>
+        <button class="sens-btn" data-ear="0.30">高め</button>
+      </div>
+      <div class="sens-desc-txt" id="sens-desc">やや高め — 浅い瞬きでも反応しやすくなります</div>
+
+      <div class="setting-row" style="margin-top:14px">
+        <label>しきい値 <span class="val" id="ear-val-txt">0.25</span></label>
+        <input type="range" id="ear-slider" min="0.05" max="0.60" step="0.01" value="0.25">
+      </div>
+      <div class="hint">しきい値テストで決まった値が入っています。ここで細かく調整できます。計測中に変えると、変えた時刻が記録に残ります。</div>
+    </div>
+
     <!-- ここから管理者用（URLの末尾に ?admin を付けたときだけ表示） -->
     <div class="admin-only">
       <div class="menu-section">
-        <div class="menu-section-title">検出感度 (EAR しきい値) — 管理者</div>
-        <div class="sens-btns" id="sens-btns">
-          <button class="sens-btn" data-ear="0.13">低め</button>
-          <button class="sens-btn" data-ear="0.17">やや低め</button>
-          <button class="sens-btn" data-ear="0.20">標準</button>
-          <button class="sens-btn active" data-ear="0.24">やや高め</button>
-          <button class="sens-btn" data-ear="0.30">高め</button>
-        </div>
-        <div class="sens-desc-txt" id="sens-desc">やや高め — 浅い瞬きでも反応しやすくなります</div>
-
-        <div class="setting-row" style="margin-top:14px">
-          <label>EAR しきい値 <span class="val" id="ear-val-txt">0.25</span></label>
-          <input type="range" id="ear-slider" min="0.05" max="0.60" step="0.01" value="0.25">
-        </div>
-
+        <div class="menu-section-title">EAR リアルタイム値 — 管理者</div>
         <div class="ear-monitor">
           <div class="ear-label">👁 EAR リアルタイム値</div>
           <div class="ear-bar-track"><div class="ear-bar-fill" id="ear-bar"></div></div>
@@ -717,6 +714,8 @@
     <div class="measure-section" id="test-panel">
       <div class="measure-section-title">// しきい値テスト</div>
       <div class="tip">💡 実際に計測で使うモニター（ゲームや作業をする画面）を見ながらテストすると、精度が上がります。カメラは目の高さで、顔となるべく平行に置いてください。</div>
+
+      <div class="tip tip-menu">🔧 しきい値の細かい調整は、左上のメニュー（☰）の「検出感度」からもできます。</div>
 
       <div class="test-box" id="test-run">
         <div class="test-thr">テスト中のしきい値 <span id="test-thr-val">0.10</span></div>
@@ -816,7 +815,7 @@
   <!-- ── 活動の選択 ── -->
   <div class="modal" id="modal-activity">
     <div class="modal-card">
-      <h3>いま何をしていますか？</h3>
+      <h3 id="act-title">いま何をしていますか？</h3>
       <div class="chips" id="act-cats">
         <button class="chip" data-cat="動画">動画</button>
         <button class="chip" data-cat="映画">映画</button>
@@ -833,6 +832,16 @@
       <div class="field act-field" id="act-other-box" style="display:none">
         <label for="act-detail">内容（詳しく）</label>
         <input type="text" id="act-detail" maxlength="60" autocomplete="off" placeholder="例：読書、プログラミング など">
+      </div>
+      <div class="field act-field" id="act-eyewear-box">
+        <label for="act-eyewear">眼鏡・コンタクトの使用</label>
+        <select id="act-eyewear">
+          <option value="">未回答</option>
+          <option value="なし（裸眼）">なし（裸眼）</option>
+          <option value="眼鏡">眼鏡</option>
+          <option value="コンタクトレンズ">コンタクトレンズ</option>
+          <option value="その他">その他</option>
+        </select>
       </div>
       <div class="hint">計測中に活動が変わったときは、もう一度ここで選び直すと、切り替えた時刻が記録されます。</div>
       <div class="modal-btns">
@@ -1331,6 +1340,7 @@
 
   function clearTestTimers() { testTimers.forEach(t => { clearTimeout(t); clearInterval(t); }); testTimers = []; }
   function showTestView(v) {
+    $('test-panel').dataset.view = v;   // 結果表示のときは、テスト中の注意書きを隠して画面に収める
     $('test-run').style.display  = v === 'run'  ? 'block' : 'none';
     $('test-done').style.display = v === 'done' ? 'block' : 'none';
   }
@@ -1497,6 +1507,19 @@
   let actDraft = null;
   $('act-genre').innerHTML = GENRES.map(g => `<option>${g}</option>`).join('');
 
+  // 前回の活動・眼鏡コンタクトの使用は、この端末のブラウザに保存され、ブラウザを閉じても引き継がれる
+  const ACT_KEY = 'blink_last_activity_v1';
+  let eyewear = '', carriedOver = false;
+  (function loadSavedActivity() {
+    const sv = store.get(ACT_KEY, null);
+    if (sv && ((sv.activity && sv.activity.category) || sv.eyewear)) {
+      if (sv.activity && sv.activity.category) {
+        activity = { category: sv.activity.category, genre: sv.activity.genre || '', gameName: sv.activity.gameName || '', detail: sv.activity.detail || '' };
+      }
+      eyewear = sv.eyewear || ''; carriedOver = true;
+    }
+  })();
+
   function activityLabel(a) {
     if (!a.category) return '未選択';
     let s = a.category;
@@ -1515,7 +1538,12 @@
     $('act-other-box').style.display = actDraft.category === 'その他' ? 'block' : 'none';
     $('btn-act-ok').disabled = !actDraft.category;
   }
-  function openActivity() {
+  // auto=true：計測画面に入ったときの自動表示（見出しを変える）。ボタンから開いたときは「いま何をしていますか？」
+  function openActivity(auto = false) {
+    $('act-title').textContent = auto
+      ? (carriedOver ? '活動などに変更はありますか？' : 'これから何をする予定ですか？')
+      : 'いま何をしていますか？';
+    $('act-eyewear').value = eyewear;
     actDraft = { ...activity };
     if (!actDraft.genre) actDraft.genre = GENRES[0];
     $('act-genre').value = actDraft.genre;
@@ -1530,6 +1558,11 @@
     if (a.category === 'その他') a.detail = $('act-detail').value.trim();
     const changed = activityLabel(a) !== activityLabel(activity);
     activity = a;
+    const prevEye = eyewear;
+    eyewear = $('act-eyewear').value;
+    store.set(ACT_KEY, { activity: a, eyewear, at: new Date().toISOString() });   // 次回の起動時に引き継ぐ
+    carriedOver = true;
+    if (measuring && prevEye !== eyewear) events.push({ atSec: rel(performance.now()), type: 'eyewear_change', detail: eyewear || '未回答' });
     updateActivityBtn();
     $('modal-activity').classList.remove('show');
     if (measuring && changed) {
@@ -1604,6 +1637,7 @@
     updateActivityBtn();
     updateMeasureStart();
     if (!cameraRunning) startCamera();
+    openActivity(true);   // 計測画面に入ったら、活動の選択を自動で開く（カメラ・顔認識の準備を待つ間に選べる）
   }
 
   function updateAdminReadout() {
@@ -1742,7 +1776,7 @@
       sessionId,
       savedAt: new Date().toISOString(),
       endReason: reason,    // user / scheduled / tab_hidden / stalled / camera_lost / page_closed
-      participant: { id: $('p-id').value.trim(), session: $('p-session').value.trim(), eyewear: $('p-eyewear').value, memo: $('p-memo').value.trim() },
+      participant: { id: $('p-id').value.trim(), session: $('p-session').value.trim(), eyewear, memo: $('p-memo').value.trim() },
       consent: consentInfo,                    // 同意ボタンはなし。メニューに掲載していた同意文の版を記録
       environment: {
         userAgent: navigator.userAgent,
@@ -1974,7 +2008,7 @@
   $('btn-test-go').addEventListener('click', enterMeasure);
   $('btn-test-back').addEventListener('click', () => { abortTest(); setStage('welcome'); resendPending(); });
 
-  $('btn-activity').addEventListener('click', openActivity);
+  $('btn-activity').addEventListener('click', () => openActivity(false));
   $('btn-act-cancel').addEventListener('click', () => $('modal-activity').classList.remove('show'));
   $('btn-act-ok').addEventListener('click', applyActivity);
 
@@ -1989,9 +2023,8 @@
 
   // 終了画面 → 最初の画面（次の人のために入力をリセット）
   $('btn-end-home').addEventListener('click', () => {
-    ['p-id', 'p-session', 'p-memo', 'p-eyewear', 'opt-planned'].forEach(id => { $(id).value = ''; });
-    activity = { category: '', genre: '', gameName: '', detail: '' };
-    updateActivityBtn();
+    ['p-id', 'p-session', 'p-memo', 'opt-planned'].forEach(id => { $(id).value = ''; });
+    // 活動・眼鏡コンタクトの使用は、次回に引き継ぐため消さない（次の計測の開始時に確認される）
     thresholdSource = null; testInfo = null;
     setStage('welcome');
     resendPending();
