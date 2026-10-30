@@ -143,6 +143,22 @@
     .sens-desc-txt { font-size: 11px; color: var(--text-dim); margin-top: 6px; font-family: var(--font-mono); }
 
     /* ── EAR live monitor ── */
+    .eye-meter { margin: 14px 0 0; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; }
+    .eye-meter-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--text-mid); font-family: var(--font-ui); font-weight: 600; margin-bottom: 8px; }
+    .eye-meter-val { font-family: var(--font-mono); font-size: 13px; color: var(--text); }
+    .eye-meter-track { position: relative; height: 16px; background: var(--border); border-radius: 4px; }
+    .eye-meter-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--ok); border-radius: 4px; transition: width .06s linear, background .1s; }
+    .eye-meter-fill.closed { background: var(--danger); }
+    .eye-mark { position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1.5px; border-radius: 2px; display: none; }
+    .mark-closed { background: var(--danger); }
+    .mark-open { background: var(--accent); }
+    .mark-thr { background: #fff; width: 3px; top: -6px; bottom: -6px; box-shadow: 0 0 0 1px rgba(0,0,0,.6); display: block; }
+    .eye-meter-legend { display: flex; justify-content: space-between; gap: 6px; margin-top: 8px; font-size: 10px; color: var(--text-dim); font-family: var(--font-mono); }
+    .eye-meter-legend b { color: var(--text-mid); font-weight: 400; }
+    .lg { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 3px; vertical-align: -1px; }
+    .lg-closed { background: var(--danger); } .lg-open { background: var(--accent); } .lg-thr { background: #fff; }
+    #btn-thr-mid { margin-top: 8px; font-size: 12px; }
+    #btn-thr-mid:disabled { opacity: .45; cursor: default; }
     .ear-monitor {
       margin-top: 10px; padding: 12px;
       background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
@@ -630,28 +646,36 @@
       </div>
       <div class="sens-desc-txt" id="sens-desc">やや高め — 浅い瞬きでも反応しやすくなります</div>
 
-      <div class="setting-row" style="margin-top:14px">
+      <!-- 目の開き具合（リアルタイム）。下のスライダーと同じ目盛りなので、位置をそのまま合わせられる -->
+      <div class="eye-meter" id="eye-meter">
+        <div class="eye-meter-head">
+          <span>👁 目の開き具合</span>
+          <span class="eye-meter-val" id="ear-live-val">—</span>
+        </div>
+        <div class="eye-meter-track">
+          <div class="eye-meter-fill" id="ear-bar"></div>
+          <div class="eye-mark mark-closed" id="mark-closed" title="閉じた時"></div>
+          <div class="eye-mark mark-open" id="mark-open" title="開いた時"></div>
+          <div class="eye-mark mark-thr" id="mark-thr" title="しきい値"></div>
+        </div>
+        <div class="eye-meter-legend">
+          <span><i class="lg lg-closed"></i>閉じた時 <b id="lg-closed">—</b></span>
+          <span><i class="lg lg-thr"></i>しきい値</span>
+          <span><i class="lg lg-open"></i>開いた時 <b id="lg-open">—</b></span>
+        </div>
+        <div class="hint" id="eye-meter-hint">カメラが動いている間（しきい値テスト・計測画面）に表示されます。</div>
+      </div>
+
+      <div class="setting-row" style="margin-top:10px">
         <label>しきい値 <span class="val" id="ear-val-txt">0.25</span></label>
         <input type="range" id="ear-slider" min="0.05" max="0.60" step="0.01" value="0.25">
       </div>
-      <div class="hint">しきい値テストで決まった値が入っています。ここで細かく調整できます。計測中に変えると、変えた時刻が記録に残ります。</div>
+      <button class="cam-ctrl-btn" id="btn-thr-mid" disabled>開いた時と閉じた時の間に合わせる</button>
+      <div class="hint">しきい値テストで決まった値が入っています。何回か瞬きをしてから、<b>白い線（しきい値）を「閉じた時」と「開いた時」の間</b>に動かしてください。バーが白い線より左に来たときに、瞬きとして数えられます。計測中に変えると、変えた時刻が記録に残ります。</div>
     </div>
 
     <!-- ここから管理者用（URLの末尾に ?admin を付けたときだけ表示） -->
     <div class="admin-only">
-      <div class="menu-section">
-        <div class="menu-section-title">EAR リアルタイム値 — 管理者</div>
-        <div class="ear-monitor">
-          <div class="ear-label">👁 EAR リアルタイム値</div>
-          <div class="ear-bar-track"><div class="ear-bar-fill" id="ear-bar"></div></div>
-          <div class="ear-val-row">
-            <span>0.10 (閉)</span>
-            <span id="ear-live-val" style="color:var(--text)">—</span>
-            <span>0.40 (開)</span>
-          </div>
-        </div>
-      </div>
-
       <div class="menu-section">
         <div class="menu-section-title">その他の検出設定 — 管理者</div>
         <div class="setting-row">
@@ -1054,6 +1078,44 @@
     }
   }
 
+  // ── 目の開き具合のバー（メニュー）─────────────────────────────
+  // 直近10秒のEARを覚えておき、「閉じた時」＝最小値、「開いた時」＝中央値（瞬きは一瞬なので中央値は開いている値になる）
+  const EAR_MIN = 0.05, EAR_MAX = 0.60;     // しきい値スライダーと同じ目盛り
+  const earBuf = [];                        // [時刻, EAR]
+  let lastMeterAt = 0;
+  function pushEarSample(t, v) {
+    earBuf.push([t, v]);
+    while (earBuf.length && t - earBuf[0][0] > 10000) earBuf.shift();
+  }
+  function eyeRefs() {
+    if (earBuf.length < 10) return null;
+    const vals = earBuf.map(x => x[1]).sort((a, b) => a - b);
+    const open = vals[Math.floor(vals.length * 0.5)], closed = vals[0];
+    return { open, closed, blinked: open - closed >= 0.04 };   // 差が小さい＝この10秒に瞬きが無い
+  }
+  const pct = v => (Math.min(Math.max((v - EAR_MIN) / (EAR_MAX - EAR_MIN), 0), 1) * 100) + '%';
+  function updateEyeMeter(t) {
+    if (t - lastMeterAt < 50) return;       // 1秒に20回まで
+    lastMeterAt = t;
+    const v = liveEar;
+    $('ear-live-val').textContent = v === null ? '—' : v.toFixed(3);
+    $('ear-bar').style.width = v === null ? '0' : pct(v);
+    $('ear-bar').classList.toggle('closed', v !== null && v < cfg.earThreshold);
+    $('mark-thr').style.left = pct(cfg.earThreshold);
+    const r = eyeRefs();
+    const show = r && r.blinked;
+    ['mark-closed', 'mark-open'].forEach(id => { $(id).style.display = show ? 'block' : 'none'; });
+    if (show) { $('mark-closed').style.left = pct(r.closed); $('mark-open').style.left = pct(r.open); }
+    $('lg-closed').textContent = show ? r.closed.toFixed(2) : '—';
+    $('lg-open').textContent = r ? r.open.toFixed(2) : '—';
+    $('btn-thr-mid').disabled = !show;
+    $('eye-meter-hint').textContent = !r ? 'カメラが動いている間（しきい値テスト・計測画面）に表示されます。'
+      : (!show ? '何回か瞬きをすると、「閉じた時」の位置が表示されます。'
+      : (cfg.earThreshold <= r.closed ? 'しきい値が低すぎます（閉じた時より左）。瞬きを数えられません。右に動かしてください。'
+      : (cfg.earThreshold >= r.open ? 'しきい値が高すぎます（開いた時より右）。目を開けていても瞬きと数えてしまいます。左に動かしてください。'
+      : 'しきい値は「閉じた時」と「開いた時」の間にあります。')));
+  }
+
   function cameraErrorMessage(err) {
     switch (err && err.name) {
       case 'NotAllowedError': case 'SecurityError':
@@ -1222,7 +1284,7 @@
       resetBlinkState();                                   // 顔が消えた間に目が閉じた扱いのままにしない
       liveEar = null; liveFaceW = null;
       setStatus('warn', '顔が検出されていません');
-      if (ADMIN) $('ear-live-val').textContent = '—';
+      if (menuPanel.classList.contains('open')) { $('ear-live-val').textContent = '顔が見えません'; $('ear-bar').style.width = '0'; }
       return;
     }
     trackFace(true, t);
@@ -1252,12 +1314,8 @@
     else if (liveFps && liveFps < lowFpsLimit()) setStatus('warn', `処理が遅くなっています（${Math.round(liveFps)}fps）`);
     else setStatus('ok', '顔を検出中 ✓');
 
-    if (ADMIN) {
-      const earPct = Math.min(Math.max((e.avg - 0.10) / 0.30 * 100, 0), 100);
-      $('ear-bar').style.width = earPct + '%';
-      $('ear-bar').style.background = e.avg < cfg.earThreshold ? 'var(--danger)' : 'var(--ok)';
-      $('ear-live-val').textContent = e.avg.toFixed(3);
-    }
+    pushEarSample(t, e.avg);
+    if (menuPanel.classList.contains('open')) updateEyeMeter(t);   // メニューを開いているときだけ描画（軽さのため）
 
     if (showVideo) {
       [[159,145,33,133,160,144],[386,374,362,263,387,373]].forEach(idx => {
@@ -2143,6 +2201,18 @@
   });
   // 手動で動かして指を離したときだけ記録（テスト中の自動変更は 'change' を出さない）
   $('ear-slider').addEventListener('change', e => logThresholdChange(+e.target.value));
+  $('btn-thr-mid').addEventListener('click', () => {
+    const r = eyeRefs();
+    if (!r || !r.blinked) return;
+    const v = Math.round(((r.closed + r.open) / 2) * 100) / 100;
+    setThreshold(v);
+    logThresholdChange(v);
+    lastMeterAt = 0; updateEyeMeter(performance.now());
+    toast(`しきい値を ${v.toFixed(2)} にしました`);
+  });
+  // メニューを開いた瞬間に、バーを最新にする
+  menuBtn.addEventListener('click', () => { lastMeterAt = 0; updateEyeMeter(performance.now()); });
+  $('ear-slider').addEventListener('input', () => { lastMeterAt = 0; updateEyeMeter(performance.now()); });
   $('maxfps-slider').addEventListener('input', e => {
     cfg.maxFps = +e.target.value;
     $('maxfps-val').textContent = cfg.maxFps;
