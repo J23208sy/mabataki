@@ -487,6 +487,7 @@
 
     .status-line { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; color: var(--text-dim); margin-top: 6px; max-width: 92vw; line-height: 1.6; }
     #upload-status { margin-top: 22px; }
+    .status-line.warn { color: var(--gold); font-size: 11px; letter-spacing: 0; }
     .end-msg { font-size: 14px; color: var(--text-mid); max-width: 460px; line-height: 1.8; margin: 4px 0 12px; }
     .end-send { font-size: 12px; color: var(--text-mid); margin: 0 0 18px; letter-spacing: 0; }
 
@@ -902,6 +903,7 @@
   // 空のままなら、このPCにJSONをダウンロードします。
   const UPLOAD_URL        = 'https://script.google.com/macros/s/AKfycbyPab1181EJpo0zH67DQdFO8AjIz7-MF0VXDb9xSslqtxEbuYoCSYkxbx-hAFol9zVT/exec';   // Apps ScriptのウェブアプリURL（…/exec）
   const UPLOAD_TOKEN      = 'mabataki';   // Apps Script側のTOKENと同じ合言葉
+  const SERVER_VERSION    = '2026-10-30';   // Code.gs の SERVER_VERSION と同じ値（違えば、受信側が古いまま）
   const UPLOAD_TIMEOUT_MS = 15000;
   const UPLOAD_RETRIES    = 2;    // 送信の試行回数
 
@@ -2070,7 +2072,19 @@
     try {
       const res = await fetch(UPLOAD_URL, { signal: ctrl.signal });
       const txt = await res.text();
-      el.textContent = txt.includes('OK') ? '// データ送信: 設定済み（接続OK）' : '// データ送信: 設定済み（接続できません：URLと公開設定を確認）';
+      const m = txt.match(/BlinkStudy receiver OK\s*([\w-]*)/);
+      el.classList.remove('warn');
+      if (m && m[1] === SERVER_VERSION) {
+        el.textContent = '// データ送信: 設定済み（接続OK・受信側 ' + SERVER_VERSION + '）';
+      } else if (m || /doGet/.test(txt)) {
+        // 受信側(Apps Script)が古いバージョンのまま動いている。データの列がずれてスプレッドシートに保存される
+        el.classList.add('warn');
+        el.textContent = '⚠ データ送信: 受信側（Apps Script）が古いバージョンのままです（' + (m && m[1] ? m[1] : '旧版') +
+          '）。Apps Scriptで「デプロイを管理 → 編集 → 新バージョン」で再デプロイしてください';
+      } else {
+        el.classList.add('warn');
+        el.textContent = '⚠ データ送信: 接続できません（URLと公開設定を確認）';
+      }
     } catch (e) {
       el.textContent = '// データ送信: 設定済み（接続できません：ネットワークまたはURLを確認）';
     } finally { clearTimeout(timer); }
