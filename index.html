@@ -457,6 +457,14 @@
     .check input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
     .hint { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); line-height: 1.6; margin-top: 6px; }
     .tip-menu { color: var(--text-dim); }
+    .tip-check { margin: 8px 0 0; color: var(--text-dim); }
+    /* 計測開始前の瞬きの確認：画面の縁が光る */
+    #blink-flash-screen {
+      position: fixed; inset: 0; z-index: 1900; pointer-events: none; opacity: 0;
+      box-shadow: inset 0 0 0 10px var(--accent), inset 0 0 70px 24px rgba(0,240,255,.5);
+    }
+    #blink-flash-screen.on { animation: blinkflash .4s ease-out; }
+    @keyframes blinkflash { 0% { opacity: 1; } 100% { opacity: 0; } }
     #test-panel[data-view="done"] .tip:not(.tip-menu) { display: none; }
     .tip { font-size: 11px; color: var(--gold); line-height: 1.6; text-align: center; margin-bottom: 6px; }
     .welcome-tip { max-width: 460px; font-size: 12px; margin-bottom: 20px; }
@@ -593,6 +601,9 @@
       <div class="menu-section-title">計測オプション</div>
       <label class="check"><input type="checkbox" id="opt-hide-preview"> 計測中はカメラ映像を隠す</label>
       <div class="hint">自分の顔が映っていると、瞬きに影響することがあります。映像を隠していても、顔が検出できているかは状態表示で分かります。</div>
+      <label class="check" style="margin-top:14px"><input type="checkbox" id="opt-blink-sound" checked> 計測を始めるまでは、瞬きを検出したら<b>音</b>で知らせる</label>
+      <label class="check" style="margin-top:8px"><input type="checkbox" id="opt-blink-light" checked> 計測を始めるまでは、瞬きを検出したら<b>光</b>で知らせる</label>
+      <div class="hint">しきい値が合っているかを確かめるためのものです。ゲームを映すモニターが別のときは、音が目安になります。計測を始めると止まります。</div>
       <div class="field" style="margin-top:14px">
         <label for="opt-planned">予定時間（分）</label>
         <input type="number" id="opt-planned" min="1" max="240" step="1" inputmode="numeric" placeholder="未設定（手動で終了）">
@@ -753,6 +764,7 @@
           <span class="btn-label" id="label-away">離席開始</span>
         </button>
       </div>
+      <div class="tip tip-check" id="check-tip">🔔 計測を始めるまでは、瞬きを検出すると音と光でお知らせします（しきい値の確認用）</div>
       <div class="admin-only admin-readout" id="admin-readout"></div>
       <button id="btn-back-start" class="cam-ctrl-btn" style="margin-top:8px">← 最初の画面に戻る</button>
     </div>
@@ -851,6 +863,7 @@
     </div>
   </div>
 
+  <div id="blink-flash-screen"></div>
   <div id="toast"></div>
 
 <script>
@@ -1314,6 +1327,7 @@
 
   function onBlink(b) {
     if (stage === 'test') { if (testState === 'running') testCount++; return; }
+    if (stage === 'measure' && !measuring) { blinkFeedback(); return; }   // 計測開始前：しきい値の確認用に音と光で知らせる
     if (stage === 'measure' && measuring) {
       if (b.startT < measStartPerf) return;
       blinks.push({
@@ -1630,6 +1644,24 @@
     });
   }
 
+  // 計測を始めるまでの確認用：瞬きを検出した瞬間に、短い音と画面の縁の光で知らせる（計測中は鳴らさない）
+  function blinkFeedback() {
+    if (document.querySelector('.modal.show')) return;     // 活動の選択中などは鳴らさない
+    if ($('opt-blink-sound').checked) blinkBeep();
+    if ($('opt-blink-light').checked) {
+      const f = $('blink-flash-screen');
+      f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
+    }
+  }
+  function blinkBeep() {
+    if (!audioCtx || audioCtx.state === 'closed') return;
+    const t = audioCtx.currentTime, o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = 1200;
+    g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t); o.stop(t + 0.13);
+  }
+
   function enterMeasure() {
     saveThreshold();
     setStage('measure');
@@ -1673,6 +1705,7 @@
     $('meas-btn-away').disabled  = false;
     $('btn-back-start').disabled = true;
     $('cam-select').disabled = true;
+    $('check-tip').style.display = 'none';
     $('camera-card').classList.toggle('preview-hidden', previewHidden());
 
     measTimer = setInterval(() => {
@@ -1695,6 +1728,7 @@
     ['break', 'away'].forEach(k => { $(EV_UI[k].btn).classList.remove('measuring'); $(EV_UI[k].label).textContent = EV_UI[k].off; });
     $('btn-back-start').disabled = false;
     $('cam-select').disabled = false;
+    $('check-tip').style.display = '';
     $('camera-card').classList.remove('preview-hidden');
     $('modal-confirm').classList.remove('show');
   }
@@ -2032,6 +2066,7 @@
 
   // ボタンをクリックした後にフォーカスを外す（Space/Enterキーでの二重動作を防ぐ）
   document.addEventListener('click', e => {
+    ensureAudio();                                   // 音を出すには、ユーザーの操作の中で準備しておく必要がある
     const b = e.target.closest && e.target.closest('button');
     if (b) b.blur();
   });
@@ -2063,6 +2098,11 @@
   // 映像を隠すオプションはこの端末に覚えておく
   const savedHide = store.get(HIDE_KEY, null);
   if (savedHide !== null) $('opt-hide-preview').checked = !!savedHide;
+  [['opt-blink-sound', 'blink_opt_sound_v1'], ['opt-blink-light', 'blink_opt_light_v1']].forEach(([id, key]) => {
+    const sv = store.get(key, null);
+    if (sv !== null) $(id).checked = !!sv;
+    $(id).addEventListener('change', e => store.set(key, e.target.checked));
+  });
   $('opt-hide-preview').addEventListener('change', e => {
     store.set(HIDE_KEY, e.target.checked);
     if (measuring) $('camera-card').classList.toggle('preview-hidden', e.target.checked);
