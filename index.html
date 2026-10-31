@@ -612,7 +612,7 @@
   <button id="menu-btn" aria-label="メニュー">
     <span></span><span></span><span></span>
   </button>
-  <div id="app-title-label">瞬き検出アプリ ver4.1（研究用）</div>
+  <div id="app-title-label">瞬き検出アプリ ver4.2（研究用）</div>
 
   <!-- ── MENU PANEL ── -->
   <div id="menu-overlay"></div>
@@ -707,8 +707,8 @@
       <div class="menu-section">
         <div class="menu-section-title">その他の検出設定 — 管理者</div>
         <div class="setting-row">
-          <label>最小閉眼時間 <span class="val"><span id="minclosed-val">30</span> ms</span></label>
-          <input type="range" id="minclosed-slider" min="10" max="200" step="10" value="30">
+          <label>最小閉眼時間 <span class="val"><span id="minclosed-val">50</span> ms</span></label>
+          <input type="range" id="minclosed-slider" min="10" max="200" step="10" value="50">
         </div>
         <div class="hint">この時間より短い目の閉じは、瞬きに数えません。処理が遅い（fpsが低い）端末では、短すぎると取りこぼします。</div>
         <div class="setting-row" style="margin-top:14px">
@@ -935,7 +935,7 @@
   // ============================================================
   //  BLINK STUDY — 瞬き計測システム（研究用）ver3.1
   // ============================================================
-  const APP_VERSION     = 'ver4.1';
+  const APP_VERSION     = 'ver4.2';
   const LIB_VERSIONS    = { tasksVision: '0.10.35', faceLandmarkerModel: 'float16/1', faceMesh: '0.4.1633559619' };   // 読み込むMediaPipeのバージョン（固定）
   const CONSENT_VERSION = '2026-10';                         // 同意文を変えたら更新
 
@@ -954,11 +954,13 @@
   const GUIDE = { farFace: 0.20, nearFace: 0.70, edgeX: 0.25, edgeYlo: 0.20, edgeYhi: 0.80, dark: 50,
                   pitchHigh: 20, pitchLow: -20, yawMax: 30 };   // カメラの上下(度)：+が上すぎ、−が下すぎ / 左右(度)
   // 新しい顔認識（瞬きスコア）は顔の向きに強いので、カメラの角度の警告をゆるめる
-  const GUIDE_LM = { pitchHigh: 30, pitchLow: -30, yawMax: 45 };
+  // 机に置いたスマホから見上げる置き方（カメラが目より下）が基本なので、下からの角度は広めに許す
+  const GUIDE_LM = { pitchHigh: 30, pitchLow: -45, yawMax: 45 };
   const lowFpsLimit = () => cfg.maxFps * 0.5;
   const STALL = { hiddenMs: 5000, visibleMs: 20000, noteMs: 1500 };  // 画面が止まったと判断する時間
   // しきい値の自動設定：5回瞬きしてもらい、閉じた時と開いた時の値の中間をしきい値にする
-  const TEST  = { target: 5, minDips: 3, dipDown: 0.80, dipUp: 0.90, minSeparation: 0.25, thrMin: 0.25, thrMax: 0.80, timeoutSec: 20,
+  // 瞬きを拾う基準は、カウントダウン中（目を開いている間）の値の揺れ幅から決める（下から撮るなど、開閉の差が小さくても拾えるように）
+  const TEST  = { target: 5, minDips: 3, minDepth: 0.06, noiseK: 4, minSeparation: 0.08, sepK: 5, thrMin: 0.25, thrMax: 0.95, timeoutSec: 20,
                   countdownSec: 3, pauseMs: 3000 };
   const GENRES = ['FPS / TPS', 'バトルロイヤル', 'MOBA', 'アクション', 'アクションRPG', 'RPG', 'アドベンチャー',
                   'オープンワールド', 'シミュレーション', '経営・育成', '戦略・RTS', 'パズル', '音楽・リズム',
@@ -969,7 +971,7 @@
   const PENDING_KEY = 'blink_pending_v1', LAST_THR_KEY = 'blink_last_thr_v2',
         THR_BY_ID_KEY = 'blink_thr_by_id_v2', HIDE_KEY = 'blink_opt_hide_v2';
 
-  let cfg = { earThreshold: 0.50, minClosedMs: 30, maxFps: 30 };   // earThreshold：開き具合（普段=1.0）がこれを下回ったら「閉じた」
+  let cfg = { earThreshold: 0.50, minClosedMs: 50, maxFps: 30 };   // earThreshold：開き具合（普段=1.0）がこれを下回ったら「閉じた」
   const ADMIN = new URLSearchParams(location.search).has('admin');
   if (ADMIN) document.body.classList.add('admin');
 
@@ -1010,7 +1012,7 @@
     '5回瞬きして自動で設定': 'Set automatically with 5 blinks',
     // ── 共通・ヘッダー ──
     'BLINK STUDY — 瞬き計測システム': 'BLINK STUDY — Blink Measurement System',
-    '瞬き検出アプリ ver4.1（研究用）': 'Blink Detection App ver4.1 (Research)',
+    '瞬き検出アプリ ver4.2（研究用）': 'Blink Detection App ver4.2 (Research)',
     'メニュー': 'Menu',
     // ── メニュー ──
     '// 計測の設定': '// Measurement settings',
@@ -1563,7 +1565,7 @@
     if (earBuf.length < 10) return null;
     const vals = earBuf.map(x => x[1]).sort((a, b) => a - b);
     const open = vals[Math.floor(vals.length * 0.5)], closed = vals[0];
-    return { open, closed, blinked: open - closed >= 0.15 };   // 差が小さい＝この10秒に瞬きが無い
+    return { open, closed, blinked: open - closed >= 0.06 };   // 差が小さい＝この10秒に瞬きが無い
   }
   const pct = v => (Math.min(Math.max((v - EAR_MIN) / (EAR_MAX - EAR_MIN), 0), 1) * 100) + '%';
   function updateEyeMeter(t) {
@@ -1752,18 +1754,26 @@
   }
   // 普段の開き具合（基準）：直近10秒の値の中央値（瞬きは時間の1〜2割なので、中央値は開いている値になる）。
   // 座り直しやカメラの角度の変化に、約5秒で基準がついていく
-  const baseBuf = []; let baseOpen = null, baseAt = 0;
-  function resetBaseline() { baseBuf.length = 0; baseOpen = null; baseAt = 0; }
-  function updateBaseline(t, raw) {
-    baseBuf.push([t, raw]);
-    while (baseBuf.length && t - baseBuf[0][0] > 10000) baseBuf.shift();
-    if (baseBuf.length < 15) { baseOpen = Math.max(baseOpen || 0, raw); return; }   // 最初は、閉じた瞬間を基準にしないよう最大値
-    if (t - baseAt < 500) return;
-    baseAt = t;
-    const v = baseBuf.map(x => x[1]).sort((a, b) => a - b);
-    // データが少ない間（約3秒未満）は、開いた側（上位25%）を基準にして、閉じた値を基準にしてしまうのを防ぐ
-    baseOpen = v[Math.floor(v.length * (baseBuf.length < 90 ? 0.75 : 0.5))];
+  function makeBaseline() {
+    const buf = []; let value = null, at = 0;
+    return {
+      get value() { return value; },
+      reset() { buf.length = 0; value = null; at = 0; },
+      push(t, raw) {
+        buf.push([t, raw]);
+        while (buf.length && t - buf[0][0] > 10000) buf.shift();
+        if (buf.length < 15) { value = Math.max(value || 0, raw); return; }   // 最初は、閉じた瞬間を基準にしないよう最大値
+        if (t - at < 500) return;
+        at = t;
+        const v = buf.map(x => x[1]).sort((a, b) => a - b);
+        // データが少ない間（約3秒未満）は、開いた側（上位25%）を基準にして、閉じた値を基準にしてしまうのを防ぐ
+        value = v[Math.floor(v.length * (buf.length < 90 ? 0.75 : 0.5))];
+      },
+    };
   }
+  const baseB = makeBaseline();   // AIの瞬きスコアから求めた開き具合の基準
+  const baseE = makeBaseline();   // 3次元のEARの基準
+  function resetBaseline() { baseB.reset(); baseE.reset(); }
   let yawEma = null, lastTestValAt = 0;
   // 下向きの判定：
   //  ・頭の向き：その人の直近60秒の普段の頭の向きより、25度以上下を向いた
@@ -1835,20 +1845,26 @@
     const lm = results.landmarks;
     const mR = eyeMetrics(lm, EYE.R, w, h), mL = eyeMetrics(lm, EYE.L, w, h);
     // 目ごとの開き具合：新しい顔認識はAIの瞬きスコア（0=開く〜1=閉じる）、旧版は3次元のEAR
-    let oR, oL, blinkScore = null, lookDownNow = null;
-    const wR = mR.width * mR.width, wL = mL.width * mL.width, wSum = Math.max(wR + wL, 1e-6);
+    // カメラが下や横にあると、AIの瞬きスコアだけでは開閉の差が小さくなることがある（下からだと目が縦に潰れて写る）。
+    // そこで、AIの瞬きスコアと3次元のEARを、それぞれ「普段の開き具合=1.0」にそろえてから平均する（片方の差が縮んでも、もう片方で補う）
+    let blinkScore = null, lookDownNow = null, raw;
+    const wR = mR.width * mR.width, wL = mL.width * mL.width, wSum = Math.max(wR + wL, 1e-6);   // よく写っている目を重く見る
+    const earRaw = (wR * mR.ear + wL * mL.ear) / wSum;
+    if (!judgePaused) baseE.push(t, earRaw);              // 下を向いている間の値は、普段の開き具合に混ぜない
+    const bE = Math.max(baseE.value || earRaw, 0.01);
+    let relR = mR.ear / bE, relL = mL.ear / bE;
     if (results.blend) {
       const sc = k => { const c = results.blend.find(x => x.categoryName === k); return c ? c.score : 0; };
       const bR = sc('eyeBlinkRight'), bL = sc('eyeBlinkLeft');   // eyeBlinkLeft＝本人の左目（確認済み）
-      oR = 1 - bR; oL = 1 - bL;
       blinkScore = (wR * bR + wL * bL) / wSum;
       lookDownNow = (wR * sc('eyeLookDownRight') + wL * sc('eyeLookDownLeft')) / wSum;
-    } else { oR = mR.ear; oL = mL.ear; }
-    // カメラが横にあるときは、遠い側の目が斜めに潰れて写るので、よく写っている目を重く見る
-    const raw = (wR * oR + wL * oL) / wSum;
-    if (!judgePaused) updateBaseline(t, raw);   // 下を向いている間の値は、普段の開き具合に混ぜない
-    const base = Math.max(baseOpen || raw, 0.05);
-    const e = { avg: Math.min(raw / base, 1.5), r: Math.min(oR / base, 1.5), l: Math.min(oL / base, 1.5), earR: mR.ear, earL: mL.ear, blink: blinkScore };
+      raw = 1 - blinkScore;
+      if (!judgePaused) baseB.push(t, raw);
+      const bB = Math.max(baseB.value || raw, 0.05);
+      relR = ((1 - bR) / bB + relR) / 2;
+      relL = ((1 - bL) / bB + relL) / 2;
+    } else { raw = earRaw; }
+    const e = { avg: Math.min((wR * relR + wL * relL) / wSum, 1.5), r: Math.min(relR, 1.5), l: Math.min(relL, 1.5), earR: mR.ear, earL: mL.ear, blink: blinkScore };
     liveEar = e.avg;
 
     // 顔の大きさ・位置（遠さ・近さ・端寄りの目安）
@@ -1899,6 +1915,7 @@
     if (judgePaused) return;                               // 下を向いている間は、瞬きを判定しない
     if (stage === 'test') {
       if (testState === 'running') calFeed(t, e.avg);
+      else if (testState === 'countdown') calPre.push(e.avg);
       if (t - lastTestValAt > 100) { lastTestValAt = t; $('test-thr-val').textContent = e.avg.toFixed(2); }
     }
     processEar(t, e);
@@ -1987,7 +2004,7 @@
   let testTrials = [], testInfo = null;
   let thresholdSource = null;   // 'auto' | 'manual'
   // 試行中の記録：瞬き（目の開き具合のくぼみ）ごとの最小値と、開いている間の値
-  let cal = null;
+  let cal = null, calPre = [];   // calPre：カウントダウン中の開き具合（揺れ幅を測る）
 
   function clearTestTimers() { testTimers.forEach(t => { clearTimeout(t); clearInterval(t); }); testTimers = []; }
   function showTestView(v) {
@@ -2017,6 +2034,8 @@
     runTrial();
   }
 
+  function median(a) { const v = a.slice().sort((x, y) => x - y); return v.length ? v[Math.floor(v.length / 2)] : null; }
+
   function calProgress() {
     $('test-sub').textContent = `検出: ${cal.dips.length} / ${TEST.target}回（${TEST.target}回で自動的に決まります。Space キーでも決定できます）`;
   }
@@ -2024,7 +2043,7 @@
   function runTrial() {
     clearTestTimers();
     testState = 'countdown';
-    cal = null;
+    cal = null; calPre = [];
     resetBaseline();   // 「普段の開き具合」も測り直す（カウントダウンの間に、開いた目で基準が決まる）
     $('btn-test-judge').disabled = true;
     let n = TEST.countdownSec;
@@ -2036,7 +2055,13 @@
         testTimers.push(setTimeout(tick, 1000));
       } else {
         testState = 'running';
-        cal = { dips: [], open: [], down: false, downAt: 0, min: 1, startedAt: performance.now() };
+        // 目を開いている間の中央値と揺れ幅（MAD）から、「瞬き」と見なすくぼみの深さを決める
+        const pre = calPre.length >= 10 ? calPre : [1];
+        const med = median(pre), mad = median(pre.map(v => Math.abs(v - med)));
+        const noise = Math.max(mad * 1.4826, 0.01);
+        const depth = Math.max(TEST.minDepth, TEST.noiseK * noise);
+        cal = { dips: [], open: [], down: false, downAt: 0, min: 1, startedAt: performance.now(),
+                med, noise, dipDown: med - depth, dipUp: med - Math.max(TEST.minDepth / 2, 2 * noise) };
         $('test-msg').textContent = `${TEST.target}回 瞬きしてください`;
         calProgress();
         $('btn-test-judge').disabled = false;
@@ -2050,12 +2075,12 @@
   function calFeed(t, v) {
     if (!cal) return;
     if (!cal.down) {
-      if (v < TEST.dipDown) { cal.down = true; cal.downAt = t; cal.min = v; }
+      if (v < cal.dipDown) { cal.down = true; cal.downAt = t; cal.min = v; }
       else cal.open.push(v);
       return;
     }
     cal.min = Math.min(cal.min, v);
-    if (v > TEST.dipUp) {
+    if (v > cal.dipUp) {
       cal.down = false;
       const dur = t - cal.downAt;
       if (dur >= 30 && dur <= DET.maxClosedMs) {
@@ -2067,7 +2092,6 @@
     }
   }
 
-  const median = a => { const v = a.slice().sort((x, y) => x - y); return v.length ? v[Math.floor(v.length / 2)] : null; };
 
   function judgeTrial() {
     if (testState !== 'running' || !cal) return;
@@ -2080,12 +2104,12 @@
     const closedRaw = median(dips.map(d => d.min));         // 閉じた時：くぼみの最小値の中央値
     const open = 1, closed = closedRaw === null ? null : closedRaw / openRaw;
     const trial = { trial: testTrials.length + 1, dips: dips.length, closedOpenness: closed === null ? null : r3(closed),
-                    openOpenness: 1, threshold: null, outcome: '' };
+                    openOpenness: 1, noise: r3(cal.noise), threshold: null, outcome: '' };
     testTrials.push(trial);
     let retry = '';
     if (dips.length < TEST.minDips) {
       retry = `瞬きを${dips.length}回しか検出できませんでした。顔がカメラに写っているか確認して、もう一度お願いします`;
-    } else if (open - closed < TEST.minSeparation) {
+    } else if (open - closed < Math.max(TEST.minSeparation, TEST.sepK * cal.noise / openRaw)) {
       retry = '目を閉じた時と開いた時の差が小さく、うまく測れませんでした。カメラの位置や部屋の明るさを確認して、もう一度お願いします';
     }
     if (retry) {
@@ -2503,6 +2527,7 @@
           delegate: engineInfo.delegate,         // GPU / CPU
           switches: engineInfo.switches.slice(), // GPU と CPU を切り替えた記録
           msPerFrame: detMsEma === null ? null : Math.round(detMsEma),
+          signal: engineInfo.name === 'landmarker' ? 'blendshape+ear3d' : 'ear3d',   // 判定に使った値（AIの瞬きスコアと3次元EARの平均 / 3次元EARのみ）
         },
       },
       earThreshold: cfg.earThreshold,
