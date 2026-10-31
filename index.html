@@ -613,7 +613,7 @@
   <button id="menu-btn" aria-label="メニュー">
     <span></span><span></span><span></span>
   </button>
-  <div id="app-title-label">瞬き検出アプリ ver4.5（研究用）</div>
+  <div id="app-title-label">瞬き検出アプリ ver4.7（研究用）</div>
 
   <!-- ── MENU PANEL ── -->
   <div id="menu-overlay"></div>
@@ -937,7 +937,7 @@
   // ============================================================
   //  BLINK STUDY — 瞬き計測システム（研究用）
   // ============================================================
-  const APP_VERSION     = 'ver4.5';
+  const APP_VERSION     = 'ver4.7';
   const LIB_VERSIONS    = { tasksVision: '0.10.35', faceLandmarkerModel: 'float16/1', faceMesh: '0.4.1633559619' };   // 読み込むMediaPipeのバージョン（固定）
   const CONSENT_VERSION = '2026-10';                         // 同意文を変えたら更新
 
@@ -945,7 +945,7 @@
   // 空のままなら、このPCにJSONをダウンロードします。
   const UPLOAD_URL        = 'https://script.google.com/macros/s/AKfycbyPab1181EJpo0zH67DQdFO8AjIz7-MF0VXDb9xSslqtxEbuYoCSYkxbx-hAFol9zVT/exec';   // Apps ScriptのウェブアプリURL（…/exec）
   const UPLOAD_TOKEN      = 'mabataki';   // Apps Script側のTOKENと同じ合言葉
-  const SERVER_VERSION    = '2026-10-31c';   // Code.gs の SERVER_VERSION と同じ値（違えば、受信側が古いまま）
+  const SERVER_VERSION    = '2026-10-31d';   // Code.gs の SERVER_VERSION と同じ値（違えば、受信側が古いまま）
   const UPLOAD_TIMEOUT_MS = 30000;   // 受信側が混んでいると書き込みに時間がかかるため長めに
   const UPLOAD_RETRIES    = 2;    // 送信の試行回数
 
@@ -1014,7 +1014,7 @@
     '5回瞬きして自動で設定': 'Set automatically with 5 blinks',
     // ── 共通・ヘッダー ──
     'BLINK STUDY — 瞬き計測システム': 'BLINK STUDY — Blink Measurement System',
-    '瞬き検出アプリ ver4.5（研究用）': 'Blink Detection App ver4.5 (Research)',
+    '瞬き検出アプリ ver4.7（研究用）': 'Blink Detection App ver4.7 (Research)',
     'メニュー': 'Menu',
     // ── メニュー ──
     '// 計測の設定': '// Measurement settings',
@@ -1732,7 +1732,6 @@
     camHigh:   'カメラが高すぎます。目の高さまで下げて、顔と平行にしてください',
     camLow:    'カメラが低すぎます。目の高さまで上げて、顔と平行にしてください',
     camSide:   'カメラが横に寄りすぎています。顔がもう少し正面から写る位置に置いてください',
-    lookingDown: '普段より下を向いています（その間は瞬きを数えません）',
   };
   let pitchEma = null;   // カメラの上下の傾き（度）。急な変化をならした値
   function guideState(fw, cx, cy) {
@@ -1787,13 +1786,13 @@
   // 下向きの判定（計測中だけ）：その人の「普段」（直近60秒の中央値）と比べて
   //  ・頭の向きが25度以上下を向いた、または
   //  ・AIの「下を見ている」スコアが普段より0.3以上高い
-  // が0.7秒続いたら瞬きの判定を止め、0.5秒戻ったら再開する。
-  // カメラが目より下にある（最初から見上げるように写る）人でも、それが「普段」になるので止まらない。
-  // 20秒以上止まり続けたら、置き方や姿勢が変わったと見なして、今の状態を新しい「普段」にして再開する。
+  // が0.7秒続いたら「下向き」の状態にし、0.5秒戻ったら解除する。下向きの間も瞬きは数え、その瞬きに「下向き」の印をつける。
+  // カメラが目より下にある（最初から見上げるように写る）人でも、それが「普段」になるので下向きにはならない。
+  // 20秒以上続いたら、置き方や姿勢が変わったと見なして、今の状態を新しい「普段」にして解除する。
   const DOWN = { pitchDev: 25, pitchOff: 15, lookDev: 0.30, lookOff: 0.15, enterMs: 700, exitMs: 500, maxPauseMs: 20000 };
-  let lookDownEma = null, pitchRef = null, lookRef = null, refAt = 0, downSince = null, upSince = null, judgePaused = false;
+  let lookDownEma = null, pitchRef = null, lookRef = null, refAt = 0, downSince = null, upSince = null, downNow = false;
   const refBuf = [];   // [時刻, 頭の向き, 下を見ているスコア]
-  var notJudgedIntervals = [], judgePausedSince = null, slotOpen = [];
+  var downIntervals = [], downStartedAt = null, slotOpen = [];
   function updateRefs(t, force) {
     if (!force && (t - refAt < 1000 || refBuf.length < 30)) return;
     refAt = t;
@@ -1803,38 +1802,37 @@
   function updateLookDown(t, e, lookDown) {
     // 視線のスコアは瞬きの瞬間にも上がるので、目が開いている（閉じている途中でない）時の値だけを使う
     if (lookDown !== null && !eyeClosed && e.avg > cfg.earThreshold) lookDownEma = lookDownEma === null ? lookDown : lookDownEma * 0.85 + lookDown * 0.15;
-    if (!judgePaused) {
+    if (!downNow) {
       refBuf.push([t, pitchEma, lookDownEma]);
       while (refBuf.length && t - refBuf[0][0] > 60000) refBuf.shift();
       updateRefs(t, false);
     }
-    if (!measuring) { if (judgePaused) setJudgePaused(false, t); return; }   // 自動設定中・計測前は止めない
+    if (!measuring) { if (downNow) setLookingDown(false, t); return; }   // 自動設定中・計測前は使わない
     const pDev = pitchRef === null ? 0 : pitchEma - pitchRef;                         // ＋＝普段より下を向いている
     const lDev = (lookRef === null || lookDownEma === null) ? 0 : lookDownEma - lookRef;  // ＋＝普段より下を見ている
     const down = pDev > DOWN.pitchDev || lDev > DOWN.lookDev;
     const up = pDev < DOWN.pitchOff && lDev < DOWN.lookOff;
-    if (!judgePaused) {
+    if (!downNow) {
       downSince = down ? (downSince === null ? t : downSince) : null;
-      if (downSince !== null && t - downSince >= DOWN.enterMs) setJudgePaused(true, t);
-    } else if (judgePausedSince !== null && t - judgePausedSince > DOWN.maxPauseMs) {
+      if (downSince !== null && t - downSince >= DOWN.enterMs) setLookingDown(true, t);
+    } else if (downStartedAt !== null && t - downStartedAt > DOWN.maxPauseMs) {
       // 長く続く＝置き方や姿勢が変わった。今の状態を新しい「普段」にして再開する
       refBuf.length = 0; refBuf.push([t, pitchEma, lookDownEma]); updateRefs(t, true);
       if (events.length < 500) events.push({ atSec: rel(t), type: 'reference_reset' });
-      setJudgePaused(false, t);
+      setLookingDown(false, t);
     } else {
       upSince = up ? (upSince === null ? t : upSince) : null;
-      if (upSince !== null && t - upSince >= DOWN.exitMs) setJudgePaused(false, t);
+      if (upSince !== null && t - upSince >= DOWN.exitMs) setLookingDown(false, t);
     }
   }
-  function setJudgePaused(on, t) {
-    judgePaused = on; downSince = null; upSince = null;
-    resetBlinkState();
+  function setLookingDown(on, t) {
+    downNow = on; downSince = null; upSince = null;
     if (!measuring) return;
-    if (on) judgePausedSince = Math.max(t, measStartPerf);
-    else if (judgePausedSince !== null) {
-      const startSec = rel(judgePausedSince), endSec = rel(t);
-      notJudgedIntervals.push({ startSec, endSec, durationSec: r3(endSec - startSec) });
-      judgePausedSince = null;
+    if (on) downStartedAt = Math.max(t, measStartPerf);
+    else if (downStartedAt !== null) {
+      const startSec = rel(downStartedAt), endSec = rel(t);
+      downIntervals.push({ startSec, endSec, durationSec: r3(endSec - startSec) });
+      downStartedAt = null;
     }
   }
 
@@ -1845,10 +1843,10 @@
     lastFrameAt = t;
     trackFps(t);
     if (measuring) quality.frames++;
-    if (gap > 500) resetBlinkState();                       // 処理が止まった前後をまたいで瞬きを数えない
+    if (gap > 500) { resetBlinkState(); reacquiredAt = t; }   // 処理が止まった前後をまたいで瞬きを数えない
     // 処理が0.5秒以上止まっていた空白（目の位置のリセット中・端末が一時的に重い等）は、顔が写っていたとは言えないので未検出に数える
     if (measuring && stage === 'measure' && gap > 500 && lostSincePerf === null) {
-      if (judgePaused) setJudgePaused(false, prevFrameT);
+      if (downNow) setLookingDown(false, prevFrameT);
       undetectedIntervals.push({ startSec: rel(prevFrameT), endSec: rel(t), durationSec: r3(rel(t) - rel(prevFrameT)), noFrames: true });
     }
     if (measuring && gap > STALL.noteMs && events.length < 500) events.push({ atSec: rel(prevFrameT), type: 'frame_stall', durationSec: r3(gap / 1000) });
@@ -1864,13 +1862,15 @@
     if (!results.landmarks) {
       trackFace(false, t);
       resetBlinkState();                                   // 顔が消えた間に目が閉じた扱いのままにしない
-      if (judgePaused) setJudgePaused(false, t);           // 顔が写っていない時間は「未検出」として数える
+      if (downNow) setLookingDown(false, t);               // 顔が写っていない時間は「未検出」として数える（下向きとは重ねない）
+      faceWasLost = true;
       liveEar = null; liveFaceW = null;
       setStatus('warn', '顔が検出されていません');
       if (menuPanel.classList.contains('open')) { $('ear-live-val').textContent = '顔が見えません'; $('ear-bar').style.width = '0'; }
       return;
     }
     trackFace(true, t);
+    if (faceWasLost) { faceWasLost = false; reacquiredAt = t; }   // 顔を見つけ直した（直後のくぼみには印をつける）
 
     const lm = results.landmarks;
     const mR = eyeMetrics(lm, EYE.R, w, h), mL = eyeMetrics(lm, EYE.L, w, h);
@@ -1880,7 +1880,7 @@
     let blinkScore = null, lookDownNow = null, raw;
     const wR = mR.width * mR.width, wL = mL.width * mL.width, wSum = Math.max(wR + wL, 1e-6);   // よく写っている目を重く見る
     const earRaw = (wR * mR.ear + wL * mL.ear) / wSum;
-    if (!judgePaused) baseE.push(t, earRaw);              // 下を向いている間の値は、普段の開き具合に混ぜない
+    if (!downNow) baseE.push(t, earRaw);              // 下を向いている間の値は、普段の開き具合に混ぜない
     const bE = Math.max(baseE.value || earRaw, 0.01);
     let relR = mR.ear / bE, relL = mL.ear / bE;
     if (results.blend) {
@@ -1889,7 +1889,7 @@
       blinkScore = (wR * bR + wL * bL) / wSum;
       lookDownNow = (wR * sc('eyeLookDownRight') + wL * sc('eyeLookDownLeft')) / wSum;
       raw = 1 - blinkScore;
-      if (!judgePaused) baseB.push(t, raw);
+      if (!downNow) baseB.push(t, raw);
       const bB = Math.max(baseB.value || raw, 0.05);
       relR = ((1 - bR) / bB + relR) / 2;
       relL = ((1 - bL) / bB + relL) / 2;
@@ -1908,7 +1908,15 @@
     const yaw = Math.atan2(((lm[454].z || 0) - (lm[234].z || 0)) * w, (lm[454].x - lm[234].x) * w) * 180 / Math.PI;
     yawEma = yawEma === null ? yaw : yawEma * 0.9 + yaw * 0.1;
     updateLookDown(t, e, lookDownNow);
-    const g = judgePaused ? 'lookingDown' : guideState(fw, cx, cy);
+    // 首をかしげる角度：両目の外側の端を結ぶ線の傾き
+    const roll = Math.atan2((lm[263].y - lm[33].y) * h, (lm[263].x - lm[33].x) * w) * 180 / Math.PI;
+    updateMotion(t, pitch, yaw, roll, cx / fw, (cy * h) / (fw * w));
+    const g = guideState(fw, cx, cy);   // 下向きは画面に出さない（本人の行動を変えないため）
+    // 印の対象の時間：下向き・頭が速く動いた直後・顔を見つけ直した直後。「印なし」の瞬き率は、この時間を除いて計算する
+    if (measuring && t >= measStartPerf && (downNow || t - lastMotionT <= MOTION.guardMs || t - reacquiredAt < AFTER_LOST_MS)) {
+      flaggedSec += dt;
+      const mi = Math.floor((t - measStartPerf) / 60000); flaggedByMin[mi] = (flaggedByMin[mi] || 0) + dt;
+    }
 
     if (measuring) {
       quality.earRSum += e.earR; quality.earLSum += e.earL; quality.earN++;
@@ -1938,11 +1946,10 @@
       canvasDirty = true;
     }
 
-    if (measuring && !judgePaused) {
+    if (measuring && !downNow) {
       const i = Math.floor((t - measStartPerf) / 15000);
       if (i >= 0) { const v = slotOpen[i] || (slotOpen[i] = { sum: 0, n: 0 }); v.sum += raw; v.n++; }
     }
-    if (judgePaused) return;                               // 下を向いている間は、瞬きを判定しない
     if (stage === 'test') {
       if (testState === 'running') calFeed(t, e.avg);
       else if (testState === 'countdown') calPre.push([t, e.avg]);
@@ -1978,14 +1985,39 @@
   //  瞬き検出（ヒステリシス＋ミリ秒基準＋最短間隔）
   // ============================================================
   let eyeClosed = false, closeStartT = 0, ep = null, lastBlinkEndT = -1e9;
+
+  // ── 頭の動き：首を振る・かしげる・うなずくと、目が細く写ったり、AIが「閉じた」と読んだりして、瞬きと間違えやすい ──
+  // 直近0.1秒の、頭の角度（上下・左右・かしげ）の変化の速さと、顔の位置の移動の速さを測り、
+  // 速く動いていた間（と、その直前0.15秒）に始まった瞬きには「頭の動き」の印をつける
+  const MOTION = { angSpeed: 80, moveSpeed: 1.2, windowMs: 100, guardMs: 150 };   // 度/秒、顔の幅/秒
+  // 両目のそろい：顔がカメラのほぼ正面を向いているときは、本物の瞬きなら両目とも閉じる。片目だけのくぼみには「片目」の印をつける
+  const BILATERAL = { maxYaw: 20, part: 0.6 };
+  let motSm = null, motHist = [], lastMotionT = -1e9, liveMotion = 0;
+  // 顔を見つけ直した直後（0.5秒）は、顔の位置や目の形の推定が落ち着かないので、その間に始まった瞬きには「見失った直後」の印をつける
+  const AFTER_LOST_MS = 500;
+  let faceWasLost = false, reacquiredAt = -1e9, flaggedSec = 0, flaggedByMin = [];
+  const FLAG_LABEL = { headMotion: '頭の動き', oneEye: '片目', lookingDown: '下向き', afterFaceLost: '見失った直後' };
+  function resetMotion() { motSm = null; motHist = []; }
+  function updateMotion(t, pitch, yaw, roll, x, y) {
+    const cur = [pitch, yaw, roll, x, y];
+    motSm = motSm ? motSm.map((v, i) => v * 0.5 + cur[i] * 0.5) : cur;   // 1フレームの細かい揺れは少しならす
+    motHist.push([t, motSm.slice()]);
+    while (motHist.length > 2 && t - motHist[1][0] >= MOTION.windowMs) motHist.shift();
+    const [t0, p0] = motHist[0], dt = (t - t0) / 1000;
+    if (dt < 0.05) return;
+    const ang = Math.max(Math.abs(motSm[0] - p0[0]), Math.abs(motSm[1] - p0[1]), Math.abs(motSm[2] - p0[2])) / dt;
+    const mv = Math.hypot(motSm[3] - p0[3], motSm[4] - p0[4]) / dt;
+    liveMotion = Math.max(ang / MOTION.angSpeed, mv / MOTION.moveSpeed);   // 1以上＝速く動いている
+    if (liveMotion >= 1) lastMotionT = t;
+  }
   let openEma = null;   // 目を開けているときのEARの平均（ならした値）
-  function resetBlinkState() { eyeClosed = false; ep = null; }
+  function resetBlinkState() { eyeClosed = false; ep = null; resetMotion(); }
 
   function processEar(t, e) {
     if (!eyeClosed) {
       if (e.avg < cfg.earThreshold) {
         eyeClosed = true; closeStartT = t;
-        ep = { min: e.avg, minR: e.r, minL: e.l, earR: e.earR, earL: e.earL, maxBlink: e.blink };
+        ep = { min: e.avg, minR: e.r, minL: e.l, earR: e.earR, earL: e.earL, maxBlink: e.blink, frames: 1, down: downNow || downSince !== null };
       } else {
         openEma = openEma === null ? e.avg : openEma * 0.98 + e.avg * 0.02;
       }
@@ -1994,6 +2026,7 @@
     // 閉じている間：最小値を更新
     if (e.avg < ep.min) { ep.min = e.avg; ep.minR = e.r; ep.minL = e.l; ep.earR = e.earR; ep.earL = e.earL; }
     if (e.blink !== null && (ep.maxBlink === null || e.blink > ep.maxBlink)) ep.maxBlink = e.blink;
+    ep.frames++; if (downNow || downSince !== null) ep.down = true;
     // 開いた判定は、しきい値より少し高い値まで戻ったとき（細かい揺れで2回に数えないため）。
     // ただし、開眼時のEARとの差が小さい人でも「閉じたまま」にならないよう、その差の半分までに抑える
     const gapOpen = openEma !== null ? Math.max(0, openEma - cfg.earThreshold) : DET.hysteresis * 2;
@@ -2005,8 +2038,15 @@
         if (measuring && closeStartT >= measStartPerf && events.length < 500)
           events.push({ atSec: rel(closeStartT), type: 'long_closure', durationSec: r3(durMs / 1000) });
       } else if (durMs >= cfg.minClosedMs && (closeStartT - lastBlinkEndT) >= DET.minIntervalMs) {
+        // 瞬きはすべて数え、判定があやしくなる場面だった瞬きには印をつける（どれを分析に使うかは後から決められる）
+        const flags = [];
+        if (lastMotionT >= closeStartT - MOTION.guardMs) flags.push('headMotion');
+        if (yawEma !== null && Math.abs(yawEma) < BILATERAL.maxYaw &&
+            Math.max(ep.minR, ep.minL) > cfg.earThreshold + (1 - cfg.earThreshold) * BILATERAL.part) flags.push('oneEye');
+        if (ep.down) flags.push('lookingDown');
+        if (closeStartT - reacquiredAt < AFTER_LOST_MS) flags.push('afterFaceLost');
         lastBlinkEndT = t;
-        onBlink({ startT: closeStartT, endT: t, durMs, minOpen: ep.min, minR: ep.minR, minL: ep.minL, earR: ep.earR, earL: ep.earL, maxBlink: ep.maxBlink });
+        onBlink({ startT: closeStartT, endT: t, durMs, minOpen: ep.min, minR: ep.minR, minL: ep.minL, earR: ep.earR, earL: ep.earL, maxBlink: ep.maxBlink, frames: ep.frames, flags });
       }
       ep = null;
     }
@@ -2027,6 +2067,8 @@
         blinkScore: b.maxBlink === null ? null : r3(b.maxBlink),                                 // AIの瞬きスコアの最大（旧版はなし）
         activity: activityLog.length - 1,      // activityLog の何番目の活動中か
         state: evLog.break.open ? 'break' : '',
+        flags: b.flags,                        // 印：headMotion（頭の動き）/ oneEye（片目）/ lookingDown（下向き）/ afterFaceLost（見失った直後）。空＝印なし
+        frames: b.frames,                      // 閉じていた間に処理したフレーム数（少ないほど長さの精度が粗い）
       });
       updateAdminReadout();
     }
@@ -2125,7 +2167,7 @@
     if (v > c.ref - c.upGap) {
       c.down = false;
       const dur = t - c.downAt;
-      if (dur >= 30) {
+      if (dur >= 30 && lastMotionT < c.downAt - MOTION.guardMs) {   // 頭が速く動いた間のくぼみは数えない
         cal.dips.push({ min: c.min, ref: c.ref, durationMs: Math.round(dur) });
         calSound.tick();
         calProgress();
@@ -2416,9 +2458,10 @@
     sessionId = makeSessionId(measStartWall);
     blinks = []; undetectedIntervals = []; lostSincePerf = null;
     events = []; thresholdChanges = []; lastLoggedThr = cfg.earThreshold;
+    flaggedSec = 0; flaggedByMin = [];
     quality = newQuality(); lastOp = null;
     evLog.break = { list: [], open: null };
-    notJudgedIntervals = []; judgePausedSince = null; slotOpen = [];
+    downIntervals = []; downStartedAt = null; slotOpen = [];
     activityLog = [{ atSec: 0, ...activity, label: activityLabel(activity) }];
     saveThreshold();   // ID は活動の画面で決まるので、ここでも保存（そのIDの値として次回に使う）
     resetBlinkState(); lastBlinkEndT = -1e9; openEma = null;
@@ -2520,12 +2563,15 @@
       startedAt: isoAt(measStartPerf + x.startSec * 1000), startSec: x.startSec,
       endedAt: isoAt(measStartPerf + x.endSec * 1000), endSec: x.endSec, durationSec: x.durationSec, auto: true,
       ...(x.closedByMeasurementEnd ? { closedByMeasurementEnd: true } : {}) }));
-    // 下を向いていて、瞬きの判定を止めていた区間
-    const notJudged = notJudgedIntervals.slice();
-    if (judgePausedSince !== null) { const s0 = rel(judgePausedSince); notJudged.push({ startSec: s0, endSec: durSec, durationSec: r3(durSec - s0) }); }
+    // 普段より下を向いていた区間（この間の瞬きには「下向き」の印）
+    const downs = downIntervals.slice();
+    if (downStartedAt !== null) { const s0 = rel(downStartedAt); downs.push({ startSec: s0, endSec: durSec, durationSec: r3(durSec - s0) }); }
     const undetSec = r3(undet.reduce((a, x) => a + x.durationSec, 0));
-    const notJudgedSec = r3(notJudged.reduce((a, x) => a + x.durationSec, 0));
-    const detSec = r3(Math.max(0, durSec - undetSec - notJudgedSec));   // 顔が写っていて、判定できていた時間
+    const downSec = r3(downs.reduce((a, x) => a + x.durationSec, 0));
+    const detSec = r3(Math.max(0, durSec - undetSec));                 // 顔が写っていて、瞬きを判定できていた時間
+    const flagSec = r3(Math.min(detSec, flaggedSec));                  // そのうち、印の対象になる場面だった時間
+    const clean = blinks.filter(x => !x.flags.length);
+    const flagCount = k => blinks.filter(x => x.flags.includes(k)).length;
     const meanOf = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
     const openIn = (a, b) => {   // 15秒ごとに集めた「開き具合（生の値）」の平均
       let sum = 0, n = 0;
@@ -2538,11 +2584,15 @@
     for (let m = 0; m < Math.max(1, Math.ceil(durSec / 60)); m++) {
       const a = m * 60, b = Math.min((m + 1) * 60, durSec), win = b - a;
       if (win <= 0) continue;
-      const cnt = blinks.filter(x => x.startSec >= a && x.startSec < b).length;
-      const un = Math.min(win, overlap(undet, a, b)), nj = Math.min(win - un, overlap(notJudged, a, b)), det = win - un - nj;
-      const durs = blinks.filter(x => x.startSec >= a && x.startSec < b).map(x => x.durationMs);
+      const inMin = blinks.filter(x => x.startSec >= a && x.startSec < b), cnt = inMin.length;
+      const cntClean = inMin.filter(x => !x.flags.length).length;
+      const un = Math.min(win, overlap(undet, a, b)), det = win - un;
+      const fl = Math.min(det, flaggedByMin[m] || 0), detClean = det - fl;
+      const durs = inMin.map(x => x.durationMs);
       perMinute.push({ minute: m + 1, startSec: a, windowSec: r3(win), blinkCount: cnt,
-        detectedSec: r3(det), undetectedSec: r3(un), notJudgedSec: r3(nj),
+        detectedSec: r3(det), undetectedSec: r3(un), lookingDownSec: r3(Math.min(det, overlap(downs, a, b))),
+        blinkCountClean: cntClean, flaggedSec: r3(fl),
+        blinksPerMinuteClean: detClean >= 10 ? r2(cntClean / (detClean / 60)) : null,
         breakSec: r3(overlap(breaks, a, b)), awaySec: r3(overlap(aways, a, b)),
         blinksPerMinuteDetected: det >= 10 ? r2(cnt / (det / 60)) : null,
         meanBlinkDurationMs: durs.length ? Math.round(meanOf(durs)) : null,
@@ -2592,14 +2642,18 @@
         startedAt: new Date(measStartWall).toISOString(),
         endedAt: isoAt(endPerf),
         durationSec: durSec,                   // 計測開始〜終了の全時間
-        detectedDurationSec: detSec,           // うち、顔(目)を検出でき、瞬きを判定できていた時間
+        detectedDurationSec: detSec,           // うち、顔(目)を検出でき、瞬きを判定できていた時間（下を向いていた時間も含む）
         undetectedDurationSec: undetSec,
         undetectedIntervals: undet,            // 検出できなかった区間（計測開始からの秒）
-        notJudgedDurationSec: notJudgedSec,    // 下を向いていて、瞬きの判定を止めていた時間の合計
-        notJudgedIntervals: notJudged,         // その区間
+        lookingDownDurationSec: downSec,       // 普段より下を向いていた時間の合計（検出できた時間に含まれる）
+        lookingDownIntervals: downs,           // その区間
+        flaggedDurationSec: flagSec,           // 印の対象になる場面（下向き・頭が速く動いた直後・顔を見つけ直した直後）だった時間
+        blinkCountClean: clean.length,         // 印のない瞬きの数
+        blinksPerMinuteClean: detSec - flagSec > 0 ? r2(clean.length / ((detSec - flagSec) / 60)) : null,   // 印なしの瞬き ÷（検出できた時間 − 印の対象の時間）
+        flaggedBlinkCounts: { headMotion: flagCount('headMotion'), oneEye: flagCount('oneEye'), lookingDown: flagCount('lookingDown'), afterFaceLost: flagCount('afterFaceLost') },
         meanBlinkDurationMs: blinks.length ? Math.round(meanOf(blinks.map(x => x.durationMs))) : null,   // 瞬きの長さの平均
         meanOpennessRaw: openIn(0, durSec + 1),   // 目の開き具合の平均（生の値：新方式は 1−AIの瞬きスコア、旧方式はEAR）
-        blinkCount: blinks.length,
+        blinkCount: blinks.length,             // 印つきも含めた、すべての瞬きの数
         blinksPerMinute: durSec > 0 ? r2(blinks.length / (durSec / 60)) : null,
         blinksPerMinuteDetected: detSec > 0 ? r2(blinks.length / (detSec / 60)) : null,
         blinkTimestampsSec: blinks.map(b => b.startSec),   // 瞬き1回ごとの「閉じ始め」時刻（ミリ秒まで）
@@ -2616,9 +2670,9 @@
         brightness: { mean: avg(q.brSum, q.brN), min: fin(q.brMin), max: q.brN ? r3(q.brMax) : null },
         cameraPitchDeg: { mean: avg(q.pitchSum, q.pitchN), min: fin(q.pitchMin), max: fin(q.pitchMax) },   // +：カメラが上すぎ / −：下すぎ
         cameraYawDeg: { meanAbs: avg(q.yawSum, q.yawN), maxAbs: q.yawN ? r3(q.yawMax) : null },          // 左右の角度（絶対値）
-        warningSec: { tooFar: r2(q.warn.tooFar), tooClose: r2(q.warn.tooClose), offCenter: r2(q.warn.offCenter), dark: r2(q.warn.dark), camHigh: r2(q.warn.camHigh), camLow: r2(q.warn.camLow), camSide: r2(q.warn.camSide), lookingDown: r2(q.warn.lookingDown) },
+        warningSec: { tooFar: r2(q.warn.tooFar), tooClose: r2(q.warn.tooClose), offCenter: r2(q.warn.offCenter), dark: r2(q.warn.dark), camHigh: r2(q.warn.camHigh), camLow: r2(q.warn.camLow), camSide: r2(q.warn.camSide), lookingDown: downSec },
       },
-      events,                                  // タブ非表示・処理停止・通信切断などの記録
+      events,                                  // タブ非表示・処理停止・通信切断・長い閉眼などの記録
     };
   }
 
@@ -2657,7 +2711,7 @@
 
     // 刻みごとに集計（判定できなかった時間を除いて「1分あたり」に直す）
     const dur = m.durationSec, step = binSize(dur), bins = [];
-    const off = (m.undetectedIntervals || []).concat(m.notJudgedIntervals || []);
+    const off = m.undetectedIntervals || [];
     for (let a = 0; a < dur; a += step) {
       const b = Math.min(a + step, dur), win = b - a;
       const judged = Math.max(0, win - Math.min(win, overlap(off, a, b)));
