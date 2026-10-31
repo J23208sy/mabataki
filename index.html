@@ -333,7 +333,7 @@
     }
     .meas-btn.measuring .meas-timer { opacity: 1; }
 
-    /* ──────────────────── STAGE SCREENS（最初の画面・しきい値入力） ──────────────────── */
+    /* ──────────────────── STAGE SCREENS（最初の画面・検出感度入力） ──────────────────── */
     .stage-screen {
       position: fixed; inset: 0; z-index: 100;
       display: none; flex-direction: column; align-items: center; justify-content: center;
@@ -506,11 +506,19 @@
       .chart svg { height: 60px; }
       .end-msg { font-size: 12px; line-height: 1.5; margin-bottom: 6px; }
       .end-send { font-size: 11px; margin-bottom: 10px; }
+      .save-hint { display: none; }
+      .save-user { margin: -8px 0 4px; }
+      .save-user .check { font-size: 12px; }
+      .chart svg { height: 42px; }
+      .result-charts .chart figcaption { margin-bottom: 2px; }
       #screen-end .stage-btn { padding: 10px 20px; }
       .tile-sub { font-size: 9px; }
     }
     @media (max-height: 520px) {
-      #screen-end .stage-badge, #screen-end .end-msg, #screen-end .stage-title { display: none; }
+      #screen-end .stage-badge, #screen-end .end-msg, #screen-end .stage-title, .save-hint { display: none; }
+      .save-user { margin: -10px 0 4px; }
+      .save-user .check { font-size: 12px; }
+      #screen-end .end-send { margin-bottom: 8px; }
       .result { flex-direction: row; max-width: 760px; }
       .result-tiles { grid-template-columns: 1fr 1fr; width: 46%; flex: none; }
       .result-charts { grid-template-columns: 1fr; flex: 1; }
@@ -518,6 +526,8 @@
       .tile-value { font-size: 18px; }
     }
     .end-send { font-size: 12px; color: var(--text-mid); margin: 0 0 18px; letter-spacing: 0; }
+    .save-user { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: -6px 0 16px; text-align: center; }
+    .save-user .hint { max-width: 420px; }
 
     .activity-btn {
       width: 100%; padding: 8px 10px; margin-bottom: 8px;
@@ -613,7 +623,7 @@
   <button id="menu-btn" aria-label="メニュー">
     <span></span><span></span><span></span>
   </button>
-  <div id="app-title-label">瞬き検出アプリ ver4.7（研究用）</div>
+  <div id="app-title-label">瞬き検出アプリ ver4.8（研究用）</div>
 
   <!-- ── MENU PANEL ── -->
   <div id="menu-overlay"></div>
@@ -621,15 +631,6 @@
     <div class="menu-header">
       <h2>SETTINGS</h2>
       <p>// 計測の設定</p>
-    </div>
-
-    <!-- 表示言語 -->
-    <div class="menu-section lang-keep">
-      <div class="menu-section-title">言語 / Language</div>
-      <select id="lang-select">
-        <option value="ja">日本語</option>
-        <option value="en">English</option>
-      </select>
     </div>
 
     <!-- 参加者情報（任意） -->
@@ -650,31 +651,9 @@
       <div class="hint">入力しなくても計測できます。氏名は書かないでください。</div>
     </div>
 
-    <!-- 計測オプション -->
+    <!-- 検出感度：全員に表示 -->
     <div class="menu-section">
-      <div class="menu-section-title">計測オプション</div>
-      <label class="check"><input type="checkbox" id="opt-hide-preview"> 計測中はカメラ映像を隠す</label>
-      <div class="hint">自分の顔が見えると、瞬きに影響することがあります。隠しても、検出の状態は表示されます。</div>
-      <label class="check" style="margin-top:14px"><input type="checkbox" id="opt-blink-sound" checked> <span data-i18n-html="opt-sound">計測を始めるまでは、瞬きを検出したら<b>音</b>で知らせる</span></label>
-      <label class="check" style="margin-top:8px"><input type="checkbox" id="opt-blink-light" checked> <span data-i18n-html="opt-light">計測を始めるまでは、瞬きを検出したら<b>光</b>で知らせる</span></label>
-      <div class="hint">しきい値の確認用です。計測を始めると止まります。</div>
-      <div class="field" style="margin-top:14px">
-        <label for="opt-planned">予定時間（分）</label>
-        <input type="number" id="opt-planned" min="1" max="240" step="1" inputmode="numeric" placeholder="未設定（手動で終了）">
-      </div>
-      <div class="hint">設定すると、時間になったら音を鳴らして自動で終了します。</div>
-    </div>
-
-    <!-- カメラ -->
-    <div class="menu-section">
-      <div class="menu-section-title">カメラ</div>
-      <select id="cam-select"><option value="">（カメラ起動後に選べます）</option></select>
-      <div class="hint">外付けWebカメラを使うときは、ここで切り替えます（計測中は変更できません）。</div>
-    </div>
-
-    <!-- 検出感度（しきい値）：全員に表示 -->
-    <div class="menu-section">
-      <div class="menu-section-title">検出感度（しきい値）</div>
+      <div class="menu-section-title">検出感度</div>
       <!-- 目の開き具合（リアルタイム）。下のスライダーと同じ目盛りなので、位置をそのまま合わせられる -->
       <div class="eye-meter" id="eye-meter">
         <div class="eye-meter-head">
@@ -685,22 +664,22 @@
           <div class="eye-meter-fill" id="ear-bar"></div>
           <div class="eye-mark mark-closed" id="mark-closed" title="閉じた時"></div>
           <div class="eye-mark mark-open" id="mark-open" title="開いた時"></div>
-          <div class="eye-mark mark-thr" id="mark-thr" title="しきい値"></div>
+          <div class="eye-mark mark-thr" id="mark-thr" title="検出感度"></div>
         </div>
         <div class="eye-meter-legend">
           <span><i class="lg lg-closed"></i>閉じた時 <b id="lg-closed">—</b></span>
-          <span><i class="lg lg-thr"></i>しきい値</span>
+          <span><i class="lg lg-thr"></i>検出感度</span>
           <span><i class="lg lg-open"></i>開いた時 <b id="lg-open">—</b></span>
         </div>
-        <div class="hint" id="eye-meter-hint">カメラが動いている間（しきい値テスト・計測画面）に表示されます。</div>
+        <div class="hint" id="eye-meter-hint">カメラが動いている間（検出感度の自動設定・計測画面）に表示されます。</div>
       </div>
 
       <div class="setting-row" style="margin-top:10px">
-        <label>しきい値 <span class="val" id="ear-val-txt">0.50</span></label>
+        <label>検出感度 <span class="val" id="ear-val-txt">0.50</span></label>
         <input type="range" id="ear-slider" min="0" max="1" step="0.01" value="0.50">
       </div>
       <button class="cam-ctrl-btn" id="btn-thr-mid" disabled>開いた時と閉じた時の間に合わせる</button>
-      <div class="hint" data-i18n-html="thr-hint">何回か瞬きをしてから、<b>白い線（しきい値）を「閉じた時」と「開いた時」の間</b>に動かしてください。計測中に変えると、変えた時刻が記録されます。</div>
+      <div class="hint" data-i18n-html="thr-hint">何回か瞬きをしてから、<b>白い線（検出感度）を「閉じた時」と「開いた時」の間</b>に動かしてください。計測中に変えると、変えた時刻が記録されます。</div>
     </div>
 
     <!-- ここから管理者用（URLの末尾に ?admin を付けたときだけ表示） -->
@@ -717,7 +696,7 @@
           <input type="range" id="maxfps-slider" min="10" max="30" step="5" value="30">
         </div>
         <div class="hint">下げるほどパソコンへの負荷は軽くなりますが、速い瞬きを取りこぼしやすくなります。動作が重いときだけ下げてください。</div>
-        <div class="hint" style="margin-top:10px">しきい値を計測中に変更すると、変更した時刻が記録に残ります。</div>
+        <div class="hint" style="margin-top:10px">検出感度を計測中に変更すると、変更した時刻が記録に残ります。</div>
       </div>
 
       <div class="menu-section">
@@ -727,6 +706,37 @@
           目を閉じると0に近づきます。姿勢やカメラの角度が変わっても、基準が自動でついていきます。
         </div>
       </div>
+    </div>
+
+    <!-- 計測オプション -->
+    <div class="menu-section">
+      <div class="menu-section-title">計測オプション</div>
+      <label class="check"><input type="checkbox" id="opt-hide-preview"> 計測中はカメラ映像を隠す</label>
+      <div class="hint">自分の顔が見えると、瞬きに影響することがあります。隠しても、検出の状態は表示されます。</div>
+      <label class="check" style="margin-top:14px"><input type="checkbox" id="opt-blink-sound" checked> <span data-i18n-html="opt-sound">計測を始めるまでは、瞬きを検出したら<b>音</b>で知らせる</span></label>
+      <label class="check" style="margin-top:8px"><input type="checkbox" id="opt-blink-light" checked> <span data-i18n-html="opt-light">計測を始めるまでは、瞬きを検出したら<b>光</b>で知らせる</span></label>
+      <div class="hint">検出感度の確認用です。計測を始めると止まります。</div>
+      <div class="field" style="margin-top:14px">
+        <label for="opt-planned">予定時間（分）</label>
+        <input type="number" id="opt-planned" min="1" max="240" step="1" inputmode="numeric" placeholder="未設定（手動で終了）">
+      </div>
+      <div class="hint">設定すると、時間になったら音を鳴らして自動で終了します。</div>
+    </div>
+
+    <!-- カメラ -->
+    <div class="menu-section">
+      <div class="menu-section-title">カメラ</div>
+      <select id="cam-select"><option value="">（カメラ起動後に選べます）</option></select>
+      <div class="hint">外付けWebカメラを使うときは、ここで切り替えます（計測中は変更できません）。</div>
+    </div>
+
+    <!-- 表示言語 -->
+    <div class="menu-section lang-keep">
+      <div class="menu-section-title">言語 / Language</div>
+      <select id="lang-select">
+        <option value="ja">日本語</option>
+        <option value="en">English</option>
+      </select>
     </div>
 
     <!-- 研究へのご協力について（同意文：操作は不要） -->
@@ -773,9 +783,9 @@
    </div><!-- /cam-col -->
 
    <div id="panel-col">
-    <!-- ── しきい値テストパネル ── -->
+    <!-- ── 検出感度の自動設定パネル ── -->
     <div class="measure-section" id="test-panel">
-      <div class="measure-section-title">// しきい値の自動設定</div>
+      <div class="measure-section-title">// 検出感度の自動設定</div>
       <div class="tip">💡 ゲームや作業に使う画面を見ながら瞬きしてください。瞬きを拾うたびに音が鳴ります。</div>
 
       <div class="tip tip-menu">🔧 細かい調整は、メニュー（☰）の「検出感度」でできます。</div>
@@ -785,12 +795,12 @@
         <div class="test-msg" id="test-msg">カメラを起動しています…</div>
         <div class="test-sub" id="test-sub"></div>
         <div class="test-diag" id="test-diag"></div>
-        <button id="btn-test-judge" class="cam-start-btn" disabled>判定する<span class="test-judge-key">[Space]</span></button>
+        <button id="btn-test-judge" class="cam-start-btn" disabled>判定する</button>
       </div>
 
       <div class="test-box" id="test-done" style="display:none">
         <div class="test-thr test-complete-label">// TEST COMPLETE</div>
-        <div class="test-msg">あなたのしきい値は</div>
+        <div class="test-msg">あなたの検出感度は</div>
         <div class="test-big-thr" id="test-result-thr">0.50</div>
         <div class="test-sub" id="test-result-detail"></div>
         <div class="test-note">※この端末には自動で保存されます。別の端末では、この数値を入力してください。</div>
@@ -802,7 +812,7 @@
 
     <!-- ── 計測パネル ── -->
     <div class="measure-section" id="measure-panel">
-      <div class="measure-section-title">// 計測<span class="admin-inline"> — しきい値 <span id="meas-thr">0.50</span></span></div>
+      <div class="measure-section-title">// 計測<span class="admin-inline"> — 検出感度 <span id="meas-thr">0.50</span></span></div>
       <button id="btn-activity" class="activity-btn unset">活動：未選択 ▸ 選ぶ</button>
       <div class="measure-btns">
         <button class="meas-btn main" id="meas-btn-main" disabled>
@@ -810,11 +820,11 @@
           <span class="btn-label" id="label-main">計測開始</span>
         </button>
         <button class="meas-btn" id="meas-btn-break" disabled>
-          <span class="btn-num-label">休憩 <span class="btn-key-hint">[1]</span></span>
+          <span class="btn-num-label">休憩</span>
           <span class="btn-label" id="label-break">休憩開始</span>
         </button>
       </div>
-      <div class="tip tip-check" id="check-tip">🔔 計測開始までは、瞬きを検出すると音と光で知らせます（しきい値の確認用）</div>
+      <div class="tip tip-check" id="check-tip">🔔 計測開始までは、瞬きを検出すると音と光で知らせます（検出感度の確認用）</div>
       <div class="admin-only admin-readout" id="admin-readout"></div>
       <button id="btn-back-start" class="cam-ctrl-btn" style="margin-top:8px">← 最初の画面に戻る</button>
     </div>
@@ -825,20 +835,20 @@
   <section class="stage-screen" id="screen-welcome">
     <div class="stage-badge">BLINK STUDY</div>
     <h1 class="stage-title">このアプリは初めてですか？</h1>
-    <p class="stage-desc">初めての方は、5回の瞬きでしきい値を自動で決めます。<br>2回目以降の方は、前回のしきい値を使えます。</p>
+    <p class="stage-desc">初めての方は、5回の瞬きで検出感度を自動で決めます。<br>2回目以降の方は、前回の検出感度を使えます。</p>
     <p class="tip welcome-tip">💡 ゲームや作業に使う画面を見ながら設定すると、精度が上がります。<br>カメラは目の高さで、顔の正面に近い位置に置いてください。</p>
     <div class="stage-btns">
       <button id="btn-first-yes" class="stage-btn primary">はい<small>5回瞬きして自動で設定</small></button>
-      <button id="btn-first-no" class="stage-btn">いいえ<small>しきい値を入力する</small></button>
+      <button id="btn-first-no" class="stage-btn">いいえ<small>検出感度を入力する</small></button>
     </div>
     <div id="upload-status" class="status-line"></div>
     <div id="pending-status" class="status-line"></div>
   </section>
 
-  <!-- ── しきい値入力画面 ── -->
+  <!-- ── 検出感度入力画面 ── -->
   <section class="stage-screen" id="screen-input">
     <div class="stage-badge">THRESHOLD</div>
-    <h1 class="stage-title">前回のしきい値を入力してください</h1>
+    <h1 class="stage-title">前回の検出感度を入力してください</h1>
     <div class="hint" id="thr-hint" style="margin-top:4px"></div>
     <div class="thr-input-row">
       <input type="number" id="thr-number" min="0.05" max="0.95" step="0.01" value="0.50" inputmode="decimal">
@@ -846,7 +856,7 @@
     </div>
     <div class="stage-btns">
       <button id="btn-input-back" class="stage-btn">← 戻る</button>
-      <button id="btn-input-check" class="stage-btn">測り直す<small>5回の瞬きで、しきい値を自動で決め直す</small></button>
+      <button id="btn-input-check" class="stage-btn">測り直す<small>5回の瞬きで、検出感度を自動で決め直す</small></button>
       <button id="btn-input-go" class="stage-btn primary">計測へ →</button>
     </div>
   </section>
@@ -869,6 +879,10 @@
       </div>
     </div>
     <div class="status-line end-send" id="end-send"></div>
+    <div class="save-user">
+      <label class="check"><input type="checkbox" id="opt-save-user" checked> この端末に利用者情報を保存する</label>
+      <div class="hint save-hint">保存すると、次回はIDと検出感度などが入った状態で始められます。共用の端末では、チェックを外してください。</div>
+    </div>
     <div class="stage-btns">
       <button id="btn-end-home" class="stage-btn primary" disabled>最初の画面に戻る</button>
     </div>
@@ -937,7 +951,7 @@
   // ============================================================
   //  BLINK STUDY — 瞬き計測システム（研究用）
   // ============================================================
-  const APP_VERSION     = 'ver4.7';
+  const APP_VERSION     = 'ver4.8';
   const LIB_VERSIONS    = { tasksVision: '0.10.35', faceLandmarkerModel: 'float16/1', faceMesh: '0.4.1633559619' };   // 読み込むMediaPipeのバージョン（固定）
   const CONSENT_VERSION = '2026-10';                         // 同意文を変えたら更新
 
@@ -945,7 +959,7 @@
   // 空のままなら、このPCにJSONをダウンロードします。
   const UPLOAD_URL        = 'https://script.google.com/macros/s/AKfycbyPab1181EJpo0zH67DQdFO8AjIz7-MF0VXDb9xSslqtxEbuYoCSYkxbx-hAFol9zVT/exec';   // Apps ScriptのウェブアプリURL（…/exec）
   const UPLOAD_TOKEN      = 'mabataki';   // Apps Script側のTOKENと同じ合言葉
-  const SERVER_VERSION    = '2026-10-31d';   // Code.gs の SERVER_VERSION と同じ値（違えば、受信側が古いまま）
+  const SERVER_VERSION    = '2026-10-31e';   // Code.gs の SERVER_VERSION と同じ値（違えば、受信側が古いまま）
   const UPLOAD_TIMEOUT_MS = 30000;   // 受信側が混んでいると書き込みに時間がかかるため長めに
   const UPLOAD_RETRIES    = 2;    // 送信の試行回数
 
@@ -960,7 +974,7 @@
   const GUIDE_LM = { pitchHigh: 30, pitchLow: -45, yawMax: 45 };
   const lowFpsLimit = () => cfg.maxFps * 0.5;
   const STALL = { hiddenMs: 5000, visibleMs: 20000, noteMs: 1500 };  // 画面が止まったと判断する時間
-  // しきい値の自動設定：5回瞬きしてもらい、閉じた時と開いた時の値の中間をしきい値にする
+  // 検出感度の自動設定：5回瞬きしてもらい、閉じた時と開いた時の値の中間を検出感度にする
   // 瞬きを拾う基準は、カウントダウン中（目を開いている間）の値の揺れ幅から決める（下から撮るなど、開閉の差が小さくても拾えるように）
   const TEST  = { target: 5, minDips: 3, minDepth: 0.06, maxDepth: 0.15, noiseK: 4, noiseMax: 0.04, minSeparation: 0.08, sepK: 5, thrMin: 0.25, thrMax: 0.95, timeoutSec: 20,
                   countdownSec: 3, pauseMs: 3000 };
@@ -969,7 +983,7 @@
                   'スポーツ', 'レース', '格闘', 'ホラー', 'サンドボックス・建築', 'カード・ボードゲーム',
                   'ビジュアルノベル', 'ローグライク', 'プラットフォーマー', 'シューティング（STG）', 'その他・不明'];
 
-  // しきい値の目盛りが変わったので、保存先も変える（以前のEARのしきい値は使えない）
+  // 検出感度の目盛りが変わったので、保存先も変える（以前のEARの検出感度は使えない）
   const PENDING_KEY = 'blink_pending_v1', LAST_THR_KEY = 'blink_last_thr_v2',
         THR_BY_ID_KEY = 'blink_thr_by_id_v2', HIDE_KEY = 'blink_opt_hide_v2';
 
@@ -988,6 +1002,7 @@
   const store = {
     get(k, d = null) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+    remove(k) { try { localStorage.removeItem(k); } catch (e) {} },
   };
 
   // ============================================================
@@ -1014,7 +1029,7 @@
     '5回瞬きして自動で設定': 'Set automatically with 5 blinks',
     // ── 共通・ヘッダー ──
     'BLINK STUDY — 瞬き計測システム': 'BLINK STUDY — Blink Measurement System',
-    '瞬き検出アプリ ver4.7（研究用）': 'Blink Detection App ver4.7 (Research)',
+    '瞬き検出アプリ ver4.8（研究用）': 'Blink Detection App ver4.8 (Research)',
     'メニュー': 'Menu',
     // ── メニュー ──
     '// 計測の設定': '// Measurement settings',
@@ -1027,14 +1042,15 @@
     '計測オプション': 'Measurement options',
     '計測中はカメラ映像を隠す': 'Hide the camera image during measurement',
     '自分の顔が見えると、瞬きに影響することがあります。隠しても、検出の状態は表示されます。': 'Seeing your own face can affect how you blink. The detection status is still shown when hidden.',
-    'しきい値の確認用です。計測を始めると止まります。': 'For checking the threshold. It stops once the measurement starts.',
+    'この端末に利用者情報を保存する': 'Save user information on this device',
+    '保存すると、次回はIDと検出感度などが入った状態で始められます。共用の端末では、チェックを外してください。': 'If saved, your ID, sensitivity, and other details will be filled in next time. On a shared device, uncheck this.',
+    '検出感度の確認用です。計測を始めると止まります。': 'For checking the sensitivity. It stops once the measurement starts.',
     '予定時間（分）': 'Planned duration (min)',
     '未設定（手動で終了）': 'Not set (end manually)',
     '設定すると、時間になったら音を鳴らして自動で終了します。': 'If set, a sound plays and the measurement ends automatically at that time.',
     'カメラ': 'Camera',
     '（カメラ起動後に選べます）': '(Available after the camera starts)',
     '外付けWebカメラを使うときは、ここで切り替えます（計測中は変更できません）。': 'Switch here when using an external webcam (cannot be changed during a measurement).',
-    '検出感度（しきい値）': 'Detection sensitivity (threshold)',
     '低め': 'Low', 'やや低め': 'Med-low', '標準': 'Standard', 'やや高め': 'Med-high', '高め': 'High',
     '低め — まぶたが大きく動いたときだけ反応します': 'Low — reacts only to large eyelid movements',
     'やや低め — しっかり目を閉じると反応します': 'Med-low — reacts when the eyes close firmly',
@@ -1042,12 +1058,12 @@
     'やや高め — 浅い瞬きでも反応しやすくなります': 'Med-high — reacts more easily to shallow blinks',
     '高め — 少し目を細めるだけで反応します': 'High — reacts even to slight squinting',
     '👁 目の開き具合': '👁 Eye openness',
-    '閉じた時': 'Closed', 'しきい値': 'Threshold', '開いた時': 'Open',
-    'カメラが動いている間（しきい値テスト・計測画面）に表示されます。': 'Shown while the camera is running (threshold test and measurement screens).',
+    '閉じた時': 'Closed', '検出感度': 'Sensitivity', '開いた時': 'Open',
+    'カメラが動いている間（検出感度の自動設定・計測画面）に表示されます。': 'Shown while the camera is running (automatic sensitivity setup and measurement screens).',
     '何回か瞬きをすると、「閉じた時」の位置が表示されます。': 'Blink a few times and the "Closed" position will appear.',
-    'しきい値が低すぎます（閉じた時より左）。瞬きを数えられません。右に動かしてください。': 'The threshold is too low (left of "Closed"). Blinks cannot be counted. Move it to the right.',
-    'しきい値が高すぎます（開いた時より右）。目を開けていても瞬きと数えてしまいます。左に動かしてください。': 'The threshold is too high (right of "Open"). Open eyes will be counted as blinks. Move it to the left.',
-    'しきい値は「閉じた時」と「開いた時」の間にあります。': 'The threshold is between "Closed" and "Open".',
+    '検出感度が低すぎます（閉じた時より左）。瞬きを数えられません。右に動かしてください。': 'The sensitivity is too low (left of "Closed"). Blinks cannot be counted. Move it to the right.',
+    '検出感度が高すぎます（開いた時より右）。目を開けていても瞬きと数えてしまいます。左に動かしてください。': 'The sensitivity is too high (right of "Open"). Open eyes will be counted as blinks. Move it to the left.',
+    '検出感度は「閉じた時」と「開いた時」の間にあります。': 'The sensitivity is between "Closed" and "Open".',
     '開いた時と閉じた時の間に合わせる': 'Set it between Open and Closed',
     '顔が見えません': 'Face not visible',
     'その他の検出設定 — 管理者': 'Other detection settings — admin',
@@ -1056,7 +1072,7 @@
     '処理回数の上限': 'Processing rate limit',
     '回/秒': '/s',
     '下げるほどパソコンへの負荷は軽くなりますが、速い瞬きを取りこぼしやすくなります。動作が重いときだけ下げてください。': 'Lower values reduce the load on the computer but make it easier to miss fast blinks. Lower it only if the app runs slowly.',
-    'しきい値を計測中に変更すると、変更した時刻が記録に残ります。': 'If you change the threshold during a measurement, the time of the change is recorded.',
+    '検出感度を計測中に変更すると、変更した時刻が記録に残ります。': 'If you change the sensitivity during a measurement, the time of the change is recorded.',
     '「目の開き具合」とは？': 'What is "eye openness"?',
     'AIが判定した目の開き具合を、普段目を開けているときを1.0として表しています。': 'It shows how open your eyes are, as judged by AI, with your normal open eyes as 1.0.',
     '目を閉じると0に近づきます。姿勢やカメラの角度が変わっても、基準が自動でついていきます。': 'It approaches 0 when your eyes close. The reference adjusts automatically when your posture or the camera angle changes.',
@@ -1070,17 +1086,17 @@
     '▶ カメラを起動': '▶ Start camera',
     'カメラ未接続': 'Camera not connected',
     '🔄 目の位置をリセット': '🔄 Reset eye tracking',
-    // ── しきい値テスト ──
-    '// しきい値の自動設定': '// Automatic threshold setup',
+    // ── 検出感度の自動設定 ──
+    '// 検出感度の自動設定': '// Automatic sensitivity setup',
     '目の開き具合': 'Eye openness',
     'もう一度お願いします': 'Please try again',
     '目を閉じた時と開いた時の差が小さく、うまく測れませんでした。カメラの位置や部屋の明るさを確認して、もう一度お願いします': 'The difference between closed and open eyes was too small to measure. Please check the camera position and the room lighting, then try again.',
     '💡 ゲームや作業に使う画面を見ながら瞬きしてください。瞬きを拾うたびに音が鳴ります。': '💡 Blink while looking at the screen you use for your game or work. A sound plays each time a blink is detected.',
-    '🔧 細かい調整は、メニュー（☰）の「検出感度」でできます。': '🔧 Fine-tune it under "Detection sensitivity" in the menu (☰).',
-    'テスト中のしきい値': 'Threshold being tested',
+    '🔧 細かい調整は、メニュー（☰）の「検出感度」でできます。': '🔧 Fine-tune it under "Sensitivity" in the menu (☰).',
+    'テスト中の検出感度': 'Sensitivity being tested',
     'カメラを起動しています…': 'Starting the camera…',
     '判定する': 'Check',
-    'あなたのしきい値は': 'Your threshold is',
+    'あなたの検出感度は': 'Your sensitivity is',
     '※この端末には自動で保存されます。別の端末では、この数値を入力してください。': '* It is saved automatically on this device. On another device, enter this number.',
     '（この端末には自動で記録されます。別の端末では「いいえ」を選び、この数値を入力してください）': '(It is saved automatically on this device. On another device, choose "No" and enter this number.)',
     '計測へ': 'Go to measurement',
@@ -1091,30 +1107,30 @@
     '顔認識を読み込めませんでした': 'Could not load face recognition',
     // ── 計測画面 ──
     '// 計測': '// Measurement',
-    '— しきい値': '— threshold',
+    '— 検出感度': '— sensitivity',
     '活動：未選択 ▸ 選ぶ': 'Activity: not selected ▸ Choose',
     '計測開始': 'Start', '計測終了': 'Stop',
     '顔認識を準備中…': 'Preparing face recognition…',
     '休憩': 'Break', '休憩開始': 'Start break', '休憩終了': 'End break',
     '離席': 'Away', '離席開始': 'Start away', '離席終了': 'End away',
-    '🔔 計測開始までは、瞬きを検出すると音と光で知らせます（しきい値の確認用）': '🔔 Until the measurement starts, a sound and light signal each detected blink (to check the threshold)',
+    '🔔 計測開始までは、瞬きを検出すると音と光で知らせます（検出感度の確認用）': '🔔 Until the measurement starts, a sound and light signal each detected blink (to check the sensitivity)',
     // ── 最初の画面 ──
     'このアプリは初めてですか？': 'Is this your first time using this app?',
-    '初めての方は、5回の瞬きでしきい値を自動で決めます。': 'If this is your first time, the threshold is set automatically with 5 blinks.',
-    '2回目以降の方は、前回のしきい値を使えます。': 'If you have used it before, you can use your previous threshold.',
+    '初めての方は、5回の瞬きで検出感度を自動で決めます。': 'If this is your first time, the sensitivity is set automatically with 5 blinks.',
+    '2回目以降の方は、前回の検出感度を使えます。': 'If you have used it before, you can use your previous sensitivity.',
     '💡 ゲームや作業に使う画面を見ながら設定すると、精度が上がります。': '💡 Accuracy improves if you look at the screen you use for your game or work while setting it up.',
     'カメラは目の高さで、顔の正面に近い位置に置いてください。': 'Place the camera at eye level, as close to the front of your face as possible.',
-    'はい': 'Yes', '5回瞬きして自動で設定': 'Run the threshold test',
-    'いいえ': 'No', 'しきい値を入力する': 'Enter a threshold',
+    'はい': 'Yes', '5回瞬きして自動で設定': 'Run the sensitivity test',
+    'いいえ': 'No', '検出感度を入力する': 'Enter a sensitivity',
     '// データ送信: 未設定（計測終了時にこのPCへ保存）': '// Data upload: not set (saved to this PC when the measurement ends)',
     '// データ送信: 設定済み（接続を確認中…）': '// Data upload: set (checking connection…)',
     '⚠ データ送信: 接続できません（URLと公開設定を確認）': '⚠ Data upload: cannot connect (check the URL and sharing settings)',
     '// データ送信: 設定済み（接続できません：ネットワークまたはURLを確認）': '// Data upload: set (cannot connect: check the network or URL)',
-    // ── しきい値の入力 ──
-    '前回のしきい値を入力してください': 'Enter your previous threshold',
+    // ── 検出感度の入力 ──
+    '前回の検出感度を入力してください': 'Enter your previous sensitivity',
     '← 戻る': '← Back',
     '測り直す': 'Measure again',
-    '5回の瞬きで、しきい値を自動で決め直す': 'Set the threshold again automatically with 5 blinks',
+    '5回の瞬きで、検出感度を自動で決め直す': 'Set the sensitivity again automatically with 5 blinks',
     '計測へ →': 'Go to measurement →',
     'この端末で前回使った値': 'Value last used on this device',
     // ── 終了 ──
@@ -1184,24 +1200,23 @@
   // 文の中に数値などが入るもの
   const ENP = [
     [/^(\d+)回 瞬きしてください$/, m => `Please blink ${m[1]} times`],
-    [/^(\d+)回以上が続いたため、しきい値が高すぎるようです。([\d.]+) に下げてもう一度テストします$/, m => `${m[1]} or more blinks were detected twice in a row, so the threshold seems too high. Lowering it to ${m[2]} and testing again`],
-    [/^(\d+)回以上が続きました。同じしきい値 ([\d.]+) でもう一度テストします$/, m => `${m[1]} or more blinks were detected again. Testing again with the same threshold ${m[2]}`],
-    [/^(\d+)回以上検出しました。同じしきい値 ([\d.]+) でもう一度テストします$/, m => `${m[1]} or more blinks were detected. Testing again with the same threshold ${m[2]}`],
-    [/^(\d+)回未満でした。しきい値を ([\d.]+) に上げてもう一度テストします$/, m => `Fewer than ${m[1]} blinks. Raising the threshold to ${m[2]} and testing again`],
-    [/^(\d+)回未満でした。しきい値を ([\d.]+) に少し上げてもう一度テストします$/, m => `Fewer than ${m[1]} blinks. Raising the threshold slightly to ${m[2]} and testing again`],
-    [/^(\d+)回未満でした。同じしきい値 ([\d.]+) でもう一度テストします$/, m => `Fewer than ${m[1]} blinks. Testing again with the same threshold ${m[2]}`],
-    [/^しきい値が上限（([\d.]+)）のため、同じ値でもう一度テストします。顔の向きや明るさを確認してください$/, m => `The threshold is at its maximum (${m[1]}), so testing again with the same value. Please check your face direction and the lighting`],
+    [/^(\d+)回以上が続いたため、検出感度が高すぎるようです。([\d.]+) に下げてもう一度テストします$/, m => `${m[1]} or more blinks were detected twice in a row, so the sensitivity seems too high. Lowering it to ${m[2]} and testing again`],
+    [/^(\d+)回以上が続きました。同じ検出感度 ([\d.]+) でもう一度テストします$/, m => `${m[1]} or more blinks were detected again. Testing again with the same sensitivity ${m[2]}`],
+    [/^(\d+)回以上検出しました。同じ検出感度 ([\d.]+) でもう一度テストします$/, m => `${m[1]} or more blinks were detected. Testing again with the same sensitivity ${m[2]}`],
+    [/^(\d+)回未満でした。検出感度を ([\d.]+) に上げてもう一度テストします$/, m => `Fewer than ${m[1]} blinks. Raising the sensitivity to ${m[2]} and testing again`],
+    [/^(\d+)回未満でした。検出感度を ([\d.]+) に少し上げてもう一度テストします$/, m => `Fewer than ${m[1]} blinks. Raising the sensitivity slightly to ${m[2]} and testing again`],
+    [/^(\d+)回未満でした。同じ検出感度 ([\d.]+) でもう一度テストします$/, m => `Fewer than ${m[1]} blinks. Testing again with the same sensitivity ${m[2]}`],
+    [/^検出感度が上限（([\d.]+)）のため、同じ値でもう一度テストします。顔の向きや明るさを確認してください$/, m => `The sensitivity is at its maximum (${m[1]}), so testing again with the same value. Please check your face direction and the lighting`],
     [/^まもなく開始します… (\d+)$/, m => `Starting soon… ${m[1]}`],
-    [/^瞬きし終わったら「判定する」ボタンか Space キーを押してください（(\d+)秒で自動判定）$/, m => `When you have finished blinking, press the "Check" button or the Space key (auto-check after ${m[1]} s)`],
     [/^検出 (\d+)回$/, m => `Detected: ${m[1]}`],
-    [/^検出: (\d+) \/ (\d+)回（(\d+)回で自動的に決まります。Space キーでも決定できます）$/, m => `Detected: ${m[1]} / ${m[2]} (set automatically after ${m[3]} blinks; you can also press Space)`],
+    [/^検出: (\d+) \/ (\d+)回（(\d+)回で自動的に決まります）$/, m => `Detected: ${m[1]} / ${m[2]} (set automatically after ${m[3]} blinks)`],
     [/^顔が写っていた時間 (\S+)（(\d+)%）$/, m => `Face visible: ${m[1]} (${m[2]}%)`],
     [/^瞬きを(\d+)回しか検出できませんでした。顔がカメラに写っているか確認して、もう一度お願いします$/, m => `Only ${m[1]} blink(s) were detected. Please check that your face is visible to the camera, then try again.`],
     [/^閉じた時 ([\d.]+) ／ 開いた時 ([\d.]+) の中間に設定しました$/, m => `Set halfway between closed (${m[1]}) and open (${m[2]})`],
     [/^この端末で前回使った値：([\d.]+)（違う場合は書き換えてください）$/, m => `Value last used on this device: ${m[1]} (change it if it is wrong)`],
     [/^ID「(.*)」の前回の値：([\d.]+)（違う場合は書き換えてください）$/, m => `Last value for ID "${m[1]}": ${m[2]} (change it if it is wrong)`],
-    [/^しきい値は ([\d.]+)〜([\d.]+) の範囲で入力してください$/, m => `Please enter a threshold between ${m[1]} and ${m[2]}`],
-    [/^しきい値を ([\d.]+) にしました$/, m => `Threshold set to ${m[1]}`],
+    [/^検出感度は ([\d.]+)〜([\d.]+) の範囲で入力してください$/, m => `Please enter a sensitivity between ${m[1]} and ${m[2]}`],
+    [/^検出感度を ([\d.]+) にしました$/, m => `Sensitivity set to ${m[1]}`],
     [/^(休憩|離席)(開始|終了)を記録$/, m => `${m[1] === '休憩' ? 'Break' : 'Away'} ${m[2] === '開始' ? 'start' : 'end'} recorded`],
     [/^(休憩|離席)開始を取り消しました$/, m => `${m[1] === '休憩' ? 'Break' : 'Away'} start undone`],
     [/^(休憩|離席)終了を取り消しました（.*中に戻りました）$/, m => m[1] === '休憩' ? 'Break end undone (back on break)' : 'Away end undone (back to away)'],
@@ -1243,7 +1258,7 @@
       '<li>The camera image is <b>processed only on this device</b> and is <b>never saved or sent</b>.</li>' +
       '<li>Only <b>numerical data</b>, such as blink times, and your environment (browser type, screen size, etc.) are recorded and sent. Your name is not recorded.</li>' +
       '<li>If you enter an ID such as your student number, it is saved with the data and used to match it with questionnaires.</li>',
-    'thr-hint': 'After blinking a few times, move <b>the white line (threshold) between \u201cClosed\u201d and \u201cOpen\u201d</b>. If you change it during a measurement, the time of the change is recorded.',
+    'thr-hint': 'After blinking a few times, move <b>the white line (sensitivity) between \u201cClosed\u201d and \u201cOpen\u201d</b>. If you change it during a measurement, the time of the change is recorded.',
     'opt-sound': 'Until the measurement starts, signal each detected blink with a <b>sound</b>',
     'opt-light': 'Until the measurement starts, signal each detected blink with a <b>light</b>',
   };
@@ -1342,7 +1357,7 @@
   let stage = 'welcome';   // welcome | input | test | measure | end
   function setStage(s) { stage = s; document.body.dataset.stage = s; keepScreenOn(s === 'test' || s === 'measure'); }
 
-  // しきい値テスト・計測の画面では、画面が自動で消えないようにする（消えると計測が止まるため）
+  // 検出感度の自動設定・計測の画面では、画面が自動で消えないようにする（消えると計測が止まるため）
   var wakeLock = null, wakeWant = false, wakeBusy = false;
   async function keepScreenOn(on) {
     wakeWant = on;
@@ -1563,7 +1578,7 @@
 
   // ── 目の開き具合のバー（メニュー）─────────────────────────────
   // 直近10秒のEARを覚えておき、「閉じた時」＝最小値、「開いた時」＝中央値（瞬きは一瞬なので中央値は開いている値になる）
-  const EAR_MIN = 0, EAR_MAX = 1;           // しきい値スライダーと同じ目盛り（普段の開き具合=1.0）
+  const EAR_MIN = 0, EAR_MAX = 1;           // 検出感度スライダーと同じ目盛り（普段の開き具合=1.0）
   const earBuf = [];                        // [時刻, EAR]
   let lastMeterAt = 0;
   function pushEarSample(t, v) {
@@ -1592,11 +1607,11 @@
     $('lg-closed').textContent = show ? r.closed.toFixed(2) : '—';
     $('lg-open').textContent = r ? r.open.toFixed(2) : '—';
     $('btn-thr-mid').disabled = !show;
-    $('eye-meter-hint').textContent = !r ? 'カメラが動いている間（しきい値テスト・計測画面）に表示されます。'
+    $('eye-meter-hint').textContent = !r ? 'カメラが動いている間（検出感度の自動設定・計測画面）に表示されます。'
       : (!show ? '何回か瞬きをすると、「閉じた時」の位置が表示されます。'
-      : (cfg.earThreshold <= r.closed ? 'しきい値が低すぎます（閉じた時より左）。瞬きを数えられません。右に動かしてください。'
-      : (cfg.earThreshold >= r.open ? 'しきい値が高すぎます（開いた時より右）。目を開けていても瞬きと数えてしまいます。左に動かしてください。'
-      : 'しきい値は「閉じた時」と「開いた時」の間にあります。')));
+      : (cfg.earThreshold <= r.closed ? '検出感度が低すぎます（閉じた時より左）。瞬きを数えられません。右に動かしてください。'
+      : (cfg.earThreshold >= r.open ? '検出感度が高すぎます（開いた時より右）。目を開けていても瞬きと数えてしまいます。左に動かしてください。'
+      : '検出感度は「閉じた時」と「開いた時」の間にあります。')));
   }
 
   function cameraErrorMessage(err) {
@@ -2027,7 +2042,7 @@
     if (e.avg < ep.min) { ep.min = e.avg; ep.minR = e.r; ep.minL = e.l; ep.earR = e.earR; ep.earL = e.earL; }
     if (e.blink !== null && (ep.maxBlink === null || e.blink > ep.maxBlink)) ep.maxBlink = e.blink;
     ep.frames++; if (downNow || downSince !== null) ep.down = true;
-    // 開いた判定は、しきい値より少し高い値まで戻ったとき（細かい揺れで2回に数えないため）。
+    // 開いた判定は、検出感度より少し高い値まで戻ったとき（細かい揺れで2回に数えないため）。
     // ただし、開眼時のEARとの差が小さい人でも「閉じたまま」にならないよう、その差の半分までに抑える
     const gapOpen = openEma !== null ? Math.max(0, openEma - cfg.earThreshold) : DET.hysteresis * 2;
     if (e.avg > cfg.earThreshold + Math.min(DET.hysteresis, gapOpen * 0.5)) {
@@ -2053,8 +2068,8 @@
   }
 
   function onBlink(b) {
-    if (stage === 'test') return;   // しきい値の自動設定中は、通常の判定では数えない
-    if (stage === 'measure' && !measuring) { blinkFeedback(); return; }   // 計測開始前：しきい値の確認用に音と光で知らせる
+    if (stage === 'test') return;   // 検出感度の自動設定中は、通常の判定では数えない
+    if (stage === 'measure' && !measuring) { blinkFeedback(); return; }   // 計測開始前：検出感度の確認用に音と光で知らせる
     if (stage === 'measure' && measuring) {
       if (b.startT < measStartPerf) return;
       blinks.push({
@@ -2075,7 +2090,7 @@
   }
 
   // ============================================================
-  //  しきい値テスト
+  //  検出感度の自動設定
   // ============================================================
   let testState = 'idle', testTimers = [], testMode = 'first';
   let testTrials = [], testInfo = null;
@@ -2114,7 +2129,7 @@
   function median(a) { const v = a.slice().sort((x, y) => x - y); return v.length ? v[Math.floor(v.length / 2)] : null; }
 
   function calProgress() {
-    $('test-sub').textContent = `検出: ${cal.dips.length} / ${TEST.target}回（${TEST.target}回で自動的に決まります。Space キーでも決定できます）`;
+    $('test-sub').textContent = `検出: ${cal.dips.length} / ${TEST.target}回（${TEST.target}回で自動的に決まります）`;
   }
 
   function runTrial() {
@@ -2150,7 +2165,7 @@
     tick();
   }
 
-  // 試行中のフレームごとの処理：しきい値を使わずに、目の開き具合の「くぼみ」を瞬きとして拾う
+  // 試行中のフレームごとの処理：検出感度を使わずに、目の開き具合の「くぼみ」を瞬きとして拾う
   // くぼみは「直前1秒の開いている時の値（中央値）」と比べて判定する（座り直しや見る場所の変化で値の高さが変わっても追従する）
   function calFeed(t, v) {
     if (!cal) return;
@@ -2203,7 +2218,7 @@
       testTimers.push(setTimeout(runTrial, TEST.pauseMs + 1500));
       return;
     }
-    // 閉じた時と開いた時のちょうど中間をしきい値にする（極端な値にならないよう 0.25〜0.95 に収める）
+    // 閉じた時と開いた時のちょうど中間を検出感度にする（極端な値にならないよう 0.25〜0.95 に収める）
     const thr = Math.min(TEST.thrMax, Math.max(TEST.thrMin, Math.round(((closed + open) / 2) * 100) / 100));
     trial.threshold = thr; trial.outcome = 'success';
     calSound.done();
@@ -2223,7 +2238,7 @@
   }
 
   // ============================================================
-  //  しきい値の入力（2回目以降）／この端末への記録
+  //  検出感度の入力（2回目以降）／この端末への記録
   // ============================================================
   const THR_MIN = 0.05, THR_MAX = 0.95;
 
@@ -2253,7 +2268,7 @@
   function readInputThreshold() {
     const v = parseFloat($('thr-number').value);
     if (isNaN(v) || v < THR_MIN || v > THR_MAX) {
-      toast(`しきい値は ${THR_MIN.toFixed(2)}〜${THR_MAX.toFixed(2)} の範囲で入力してください`);
+      toast(`検出感度は ${THR_MIN.toFixed(2)}〜${THR_MAX.toFixed(2)} の範囲で入力してください`);
       return null;
     }
     return v;
@@ -2627,10 +2642,10 @@
         },
       },
       earThreshold: cfg.earThreshold,
-      thresholdScale: 'relative_openness',     // しきい値の目盛り：普段の開き具合を1.0とした割合（ver4〜）
+      thresholdScale: 'relative_openness',     // 検出感度の目盛り：普段の開き具合を1.0とした割合（ver4〜）
       thresholdSource,                         // auto（5回の瞬きで自動設定）/ manual（手入力）
       thresholdTest: thresholdSource === 'manual' ? null : testInfo,
-      thresholdChanges,                        // 計測中にしきい値を変えた記録
+      thresholdChanges,                        // 計測中に検出感度を変えた記録
       minClosedMs: cfg.minClosedMs,
       processingFpsCap: cfg.maxFps,
       hysteresis: DET.hysteresis,
@@ -2793,6 +2808,7 @@
     $('end-msg').textContent = END_MSG[reason] || END_MSG.user;
     $('end-send').textContent = 'データを保存しています…';
     $('btn-end-home').disabled = true;
+    $('opt-save-user').checked = true;   // 初期設定は「保存する」
     setStage('end');
     lastResult = data;
     requestAnimationFrame(() => renderResults(data));   // 結果を見せている間に、データを送る
@@ -2994,8 +3010,31 @@
   $('meas-btn-break').addEventListener('click', () => toggleEvent('break'));
   $('btn-back-start').addEventListener('click', () => { if (!measuring) { setStage('welcome'); resendPending(); } });
 
+  // 終了画面の「この端末に利用者情報を保存する」：外すと、この人のID・検出感度・活動・眼鏡やコンタクトの使用を端末から消す。
+  // 付け直すと、計測したときの値で保存し直す。未送信データの控え（自動再送用）は、どちらでも消さない
+  function applySaveUser() {
+    const d = lastResult; if (!d) return;
+    const id = (d.participant && d.participant.id) || '';
+    const byId = store.get(THR_BY_ID_KEY, {});
+    if ($('opt-save-user').checked) {
+      const rec = { value: d.earThreshold, at: new Date().toISOString() };
+      store.set(LAST_THR_KEY, rec);
+      if (id) { byId[id] = rec; store.set(THR_BY_ID_KEY, byId); }
+      store.set(ACT_KEY, { activity, eyewear, pid: id || savedPid, at: new Date().toISOString() });
+      if (id) savedPid = id;
+    } else {
+      store.remove(LAST_THR_KEY); store.remove(ACT_KEY);
+      if (id && byId[id]) { delete byId[id]; store.set(THR_BY_ID_KEY, byId); }
+    }
+  }
+  $('opt-save-user').addEventListener('change', applySaveUser);
+
   // 終了画面 → 最初の画面（次の人のために入力をリセット）
   $('btn-end-home').addEventListener('click', () => {
+    if (!$('opt-save-user').checked) {   // 保存しない：次の人に前の人の活動やIDが引き継がれないようにする
+      activity = { category: '', genre: '', gameName: '', detail: '' }; eyewear = ''; savedPid = ''; carriedOver = false;
+      updateActivityBtn();
+    }
     ['p-id', 'p-session', 'p-memo', 'opt-planned'].forEach(id => { $(id).value = ''; });
     // 活動・眼鏡コンタクトの使用は、次回に引き継ぐため消さない（次の計測の開始時に確認される）
     thresholdSource = null; testInfo = null;
@@ -3003,26 +3042,13 @@
     resendPending();
   });
 
-  // ボタンをクリックした後にフォーカスを外す（Space/Enterキーでの二重動作を防ぐ）
+  // ボタンをクリックした後にフォーカスを外す（Enterキーでの二重動作を防ぐ）
   document.addEventListener('click', e => {
     ensureAudio();                                   // 音を出すには、ユーザーの操作の中で準備しておく必要がある
     const b = e.target.closest && e.target.closest('button');
     if (b) b.blur();
   });
 
-  // キーボード：[1]=休憩 / Space=テスト中は判定・計測中は目の位置リセット
-  document.addEventListener('keydown', e => {
-    if (e.repeat) return;
-    if (stage !== 'measure' && stage !== 'test') return;
-    if (document.querySelector('.modal.show')) return;
-    const tag = document.activeElement && document.activeElement.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    if (stage === 'measure' && e.key === '1') toggleEvent('break');
-    else if (e.code === 'Space') {
-      e.preventDefault();
-      if (stage === 'test') judgeTrial(); else resetEyeTracking();
-    }
-  });
 
   // ============================================================
   //  メニュー
@@ -3046,7 +3072,7 @@
     if (measuring) $('camera-card').classList.toggle('preview-hidden', e.target.checked);
   });
 
-  // しきい値スライダー
+  // 検出感度スライダー
   function logThresholdChange(v) {
     if (measuring && v !== lastLoggedThr) {
       thresholdChanges.push({ atSec: rel(performance.now()), from: lastLoggedThr, to: v });
@@ -3067,7 +3093,7 @@
     setThreshold(v);
     logThresholdChange(v);
     lastMeterAt = 0; updateEyeMeter(performance.now());
-    toast(`しきい値を ${v.toFixed(2)} にしました`);
+    toast(`検出感度を ${v.toFixed(2)} にしました`);
   });
   // メニューを開いた瞬間に、バーを最新にする
   menuBtn.addEventListener('click', () => { lastMeterAt = 0; updateEyeMeter(performance.now()); });
