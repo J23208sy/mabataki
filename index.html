@@ -612,7 +612,7 @@
   <button id="menu-btn" aria-label="メニュー">
     <span></span><span></span><span></span>
   </button>
-  <div id="app-title-label">瞬き検出アプリ ver4.2（研究用）</div>
+  <div id="app-title-label">瞬き検出アプリ ver4.3（研究用）</div>
 
   <!-- ── MENU PANEL ── -->
   <div id="menu-overlay"></div>
@@ -935,7 +935,7 @@
   // ============================================================
   //  BLINK STUDY — 瞬き計測システム（研究用）ver3.1
   // ============================================================
-  const APP_VERSION     = 'ver4.2';
+  const APP_VERSION     = 'ver4.3';
   const LIB_VERSIONS    = { tasksVision: '0.10.35', faceLandmarkerModel: 'float16/1', faceMesh: '0.4.1633559619' };   // 読み込むMediaPipeのバージョン（固定）
   const CONSENT_VERSION = '2026-10';                         // 同意文を変えたら更新
 
@@ -1000,7 +1000,7 @@
     '学籍番号など（任意）': 'Student number etc. (optional)',
     '例：J123456': 'e.g. J123456',
     '学生の方は学籍番号を入れてください。入れなくても計測できます。': 'Students: please enter your student number. You can measure without it.',
-    '下を向いています（その間は瞬きを数えません）': 'You are looking down (blinks are not counted meanwhile)',
+    '普段より下を向いています（その間は瞬きを数えません）': 'You are looking further down than usual (blinks are not counted meanwhile)',
     '計測時間': 'Duration',
     '瞬きの回数': 'Blinks',
     '1分あたりの瞬き': 'Blinks per minute',
@@ -1012,7 +1012,7 @@
     '5回瞬きして自動で設定': 'Set automatically with 5 blinks',
     // ── 共通・ヘッダー ──
     'BLINK STUDY — 瞬き計測システム': 'BLINK STUDY — Blink Measurement System',
-    '瞬き検出アプリ ver4.2（研究用）': 'Blink Detection App ver4.2 (Research)',
+    '瞬き検出アプリ ver4.3（研究用）': 'Blink Detection App ver4.3 (Research)',
     'メニュー': 'Menu',
     // ── メニュー ──
     '// 計測の設定': '// Measurement settings',
@@ -1723,7 +1723,7 @@
     camHigh:   'カメラが高すぎます。目の高さまで下げて、顔と平行にしてください',
     camLow:    'カメラが低すぎます。目の高さまで上げて、顔と平行にしてください',
     camSide:   'カメラが横に寄りすぎています。顔がもう少し正面から写る位置に置いてください',
-    lookingDown: '下を向いています（その間は瞬きを数えません）',
+    lookingDown: '普段より下を向いています（その間は瞬きを数えません）',
   };
   let pitchEma = null;   // カメラの上下の傾き（度）。急な変化をならした値
   function guideState(fw, cx, cy) {
@@ -1775,27 +1775,43 @@
   const baseE = makeBaseline();   // 3次元のEARの基準
   function resetBaseline() { baseB.reset(); baseE.reset(); }
   let yawEma = null, lastTestValAt = 0;
-  // 下向きの判定：
-  //  ・頭の向き：その人の直近60秒の普段の頭の向きより、25度以上下を向いた
-  //  ・視線：AIの「下を見ている」スコアが高い（瞬きの瞬間もこのスコアは上がるので、目がはっきり開いている時の値だけで判断する）
-  // どちらかが0.7秒続いたら判定を止め、0.5秒戻ったら再開する
-  const DOWN = { pitchDev: 25, lookDown: 0.6, lookDownOff: 0.45, enterMs: 700, exitMs: 500 };
-  let lookDownEma = null, pitchRef = null, pitchRefAt = 0, downSince = null, upSince = null, judgePaused = false;
-  const pitchBuf = [];
+  // 下向きの判定（計測中だけ）：その人の「普段」（直近60秒の中央値）と比べて
+  //  ・頭の向きが25度以上下を向いた、または
+  //  ・AIの「下を見ている」スコアが普段より0.3以上高い
+  // が0.7秒続いたら瞬きの判定を止め、0.5秒戻ったら再開する。
+  // カメラが目より下にある（最初から見上げるように写る）人でも、それが「普段」になるので止まらない。
+  // 20秒以上止まり続けたら、置き方や姿勢が変わったと見なして、今の状態を新しい「普段」にして再開する。
+  const DOWN = { pitchDev: 25, pitchOff: 15, lookDev: 0.30, lookOff: 0.15, enterMs: 700, exitMs: 500, maxPauseMs: 20000 };
+  let lookDownEma = null, pitchRef = null, lookRef = null, refAt = 0, downSince = null, upSince = null, judgePaused = false;
+  const refBuf = [];   // [時刻, 頭の向き, 下を見ているスコア]
   var notJudgedIntervals = [], judgePausedSince = null, slotOpen = [];
+  function updateRefs(t, force) {
+    if (!force && (t - refAt < 1000 || refBuf.length < 30)) return;
+    refAt = t;
+    const med = arr => { const v = arr.filter(x => x !== null).sort((a, b) => a - b); return v.length ? v[Math.floor(v.length / 2)] : null; };
+    pitchRef = med(refBuf.map(x => x[1])); lookRef = med(refBuf.map(x => x[2]));
+  }
   function updateLookDown(t, e, lookDown) {
-    if (lookDown !== null && e.avg > cfg.earThreshold + 0.1) lookDownEma = lookDownEma === null ? lookDown : lookDownEma * 0.85 + lookDown * 0.15;
+    // 視線のスコアは瞬きの瞬間にも上がるので、目が開いている（閉じている途中でない）時の値だけを使う
+    if (lookDown !== null && !eyeClosed && e.avg > cfg.earThreshold) lookDownEma = lookDownEma === null ? lookDown : lookDownEma * 0.85 + lookDown * 0.15;
     if (!judgePaused) {
-      pitchBuf.push([t, pitchEma]);
-      while (pitchBuf.length && t - pitchBuf[0][0] > 60000) pitchBuf.shift();
-      if (t - pitchRefAt > 1000 && pitchBuf.length > 30) { pitchRefAt = t; const v = pitchBuf.map(x => x[1]).sort((a, b) => a - b); pitchRef = v[Math.floor(v.length / 2)]; }
+      refBuf.push([t, pitchEma, lookDownEma]);
+      while (refBuf.length && t - refBuf[0][0] > 60000) refBuf.shift();
+      updateRefs(t, false);
     }
-    const dev = pitchRef === null ? 0 : pitchEma - pitchRef;   // ＋＝普段より下を向いている
-    const down = dev > DOWN.pitchDev || (lookDownEma !== null && lookDownEma > DOWN.lookDown);
-    const up = dev < DOWN.pitchDev - 10 && (lookDownEma === null || lookDownEma < DOWN.lookDownOff);
+    if (!measuring) { if (judgePaused) setJudgePaused(false, t); return; }   // 自動設定中・計測前は止めない
+    const pDev = pitchRef === null ? 0 : pitchEma - pitchRef;                         // ＋＝普段より下を向いている
+    const lDev = (lookRef === null || lookDownEma === null) ? 0 : lookDownEma - lookRef;  // ＋＝普段より下を見ている
+    const down = pDev > DOWN.pitchDev || lDev > DOWN.lookDev;
+    const up = pDev < DOWN.pitchOff && lDev < DOWN.lookOff;
     if (!judgePaused) {
       downSince = down ? (downSince === null ? t : downSince) : null;
       if (downSince !== null && t - downSince >= DOWN.enterMs) setJudgePaused(true, t);
+    } else if (judgePausedSince !== null && t - judgePausedSince > DOWN.maxPauseMs) {
+      // 長く続く＝置き方や姿勢が変わった。今の状態を新しい「普段」にして再開する
+      refBuf.length = 0; refBuf.push([t, pitchEma, lookDownEma]); updateRefs(t, true);
+      if (events.length < 500) events.push({ atSec: rel(t), type: 'reference_reset' });
+      setJudgePaused(false, t);
     } else {
       upSince = up ? (upSince === null ? t : upSince) : null;
       if (upSince !== null && t - upSince >= DOWN.exitMs) setJudgePaused(false, t);
