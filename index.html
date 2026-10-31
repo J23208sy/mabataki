@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BLINK STUDY — 瞬き計測システム</title>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;700&family=Noto+Sans+JP:wght@300;400;700;900&display=swap" rel="stylesheet">
 
@@ -128,19 +127,6 @@
     input[type=range] {
       width: 100%; accent-color: var(--accent); cursor: pointer; height: 4px;
     }
-
-    .sens-btns { display: flex; gap: 4px; flex-wrap: wrap; }
-    .sens-btn {
-      flex: 1; min-width: 0;
-      padding: 6px 4px; font-size: 11px; font-family: var(--font-mono);
-      background: var(--surface2); border: 1px solid var(--border2);
-      color: var(--text-dim); border-radius: 5px; cursor: pointer; transition: all .15s;
-      white-space: nowrap; text-align: center;
-    }
-    .sens-btn:hover { border-color: var(--accent); color: var(--text); }
-    .sens-btn.active { background: rgba(0,240,255,.1); border-color: var(--accent); color: var(--accent); }
-
-    .sens-desc-txt { font-size: 11px; color: var(--text-dim); margin-top: 6px; font-family: var(--font-mono); }
 
     /* ── EAR live monitor ── */
     .eye-meter { margin: 14px 0 0; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; }
@@ -321,6 +307,7 @@
     .meas-btn.done .btn-label { color: var(--ok); }
 
     .meas-btn.main { grid-column: 1 / -1; min-height: 60px; }
+    #meas-btn-break { grid-column: 1 / -1; }
 
     .btn-label {
       font-family: var(--font-body); font-weight: 700; font-size: 15px; letter-spacing: .1em;
@@ -456,7 +443,7 @@
       display: block; font-family: var(--font-ui); font-weight: 600; font-size: 13px;
       color: var(--text-mid); margin-bottom: 6px;
     }
-    .field input[type=text], .field input[type=number], .field textarea, .field select, #cam-select {
+    .field input[type=text], .field input[type=number], .field textarea, .field select, #cam-select, #lang-select {
       width: 100%; padding: 9px 10px;
       font-family: var(--font-body); font-size: 14px;
       background: var(--surface2); color: var(--text);
@@ -488,7 +475,47 @@
     .status-line { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; color: var(--text-dim); margin-top: 6px; max-width: 92vw; line-height: 1.6; }
     #upload-status { margin-top: 22px; }
     .status-line.warn { color: var(--gold); font-size: 11px; letter-spacing: 0; }
-    .end-msg { font-size: 14px; color: var(--text-mid); max-width: 460px; line-height: 1.8; margin: 4px 0 12px; }
+    .end-msg { font-size: 13px; color: var(--text-mid); max-width: 560px; line-height: 1.6; margin: 0 0 10px; }
+    /* ── 結果 ── */
+    .result { width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+    .result-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .tile { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; text-align: left; min-width: 0; }
+    .tile-label { font-size: 11px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tile-value { font-family: var(--font-body); font-weight: 700; font-size: 24px; color: var(--text); line-height: 1.25; }
+    .tile-sub { font-size: 10px; color: var(--text-dim); line-height: 1.4; }
+    .result-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .chart { margin: 0; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px 4px; min-width: 0; }
+    .chart figcaption { font-size: 11px; color: var(--text-mid); text-align: left; margin-bottom: 2px; }
+    .chart svg { display: block; width: 100%; height: 120px; overflow: visible; }
+    .chart .tick { font-family: var(--font-mono); font-size: 9px; fill: var(--text-dim); }
+    .chart .empty { font-size: 11px; fill: var(--text-dim); }
+    #screen-end .stage-title { margin-bottom: 4px; }
+    #screen-end .stage-badge { margin-bottom: 8px; }
+    @media (max-width: 600px) {
+      .result-tiles { grid-template-columns: 1fr 1fr; gap: 6px; }
+      .result-charts { grid-template-columns: 1fr; gap: 6px; }
+      .tile { padding: 6px 9px; }
+      .tile-value { font-size: 20px; }
+      .chart svg { height: 82px; }
+      #screen-end .stage-badge { display: none; }
+      #screen-end .stage-title { font-size: 20px; }
+    }
+    /* 小さいスマホ（縦）：結果画面を1画面に収める */
+    @media (max-width: 600px) and (max-height: 700px) {
+      .chart svg { height: 60px; }
+      .end-msg { font-size: 12px; line-height: 1.5; margin-bottom: 6px; }
+      .end-send { font-size: 11px; margin-bottom: 10px; }
+      #screen-end .stage-btn { padding: 10px 20px; }
+      .tile-sub { font-size: 9px; }
+    }
+    @media (max-height: 520px) {
+      #screen-end .stage-badge, #screen-end .end-msg, #screen-end .stage-title { display: none; }
+      .result { flex-direction: row; max-width: 760px; }
+      .result-tiles { grid-template-columns: 1fr 1fr; width: 46%; flex: none; }
+      .result-charts { grid-template-columns: 1fr; flex: 1; }
+      .chart svg { height: 58px; }
+      .tile-value { font-size: 18px; }
+    }
     .end-send { font-size: 12px; color: var(--text-mid); margin: 0 0 18px; letter-spacing: 0; }
 
     .activity-btn {
@@ -542,7 +569,7 @@
 
     /* toast：ボタン付き・長い文も折り返す */
     #toast { display: flex; align-items: center; justify-content: center; white-space: normal; text-align: center; max-width: 92vw; line-height: 1.5; }
-    #toast.has-action { pointer-events: auto; }
+    #toast.has-action.show { pointer-events: auto; }   /* 表示中だけ押せる（消えた後に下のボタンをふさがない） */
     .toast-action {
       margin-left: 12px; padding: 4px 10px; flex: none;
       border: 1px solid var(--accent); border-radius: 6px; background: transparent;
@@ -585,7 +612,7 @@
   <button id="menu-btn" aria-label="メニュー">
     <span></span><span></span><span></span>
   </button>
-  <div id="app-title-label">瞬き検出アプリ ver3.1（研究用）</div>
+  <div id="app-title-label">瞬き検出アプリ ver4.1（研究用）</div>
 
   <!-- ── MENU PANEL ── -->
   <div id="menu-overlay"></div>
@@ -595,11 +622,20 @@
       <p>// 計測の設定</p>
     </div>
 
+    <!-- 表示言語 -->
+    <div class="menu-section lang-keep">
+      <div class="menu-section-title">言語 / Language</div>
+      <select id="lang-select">
+        <option value="ja">日本語</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+
     <!-- 参加者情報（任意） -->
     <div class="menu-section">
       <div class="menu-section-title">参加者情報（任意）</div>
       <div class="field">
-        <label for="p-id">ID（匿名コードなど）</label>
+        <label for="p-id">ID（学籍番号など）</label>
         <input type="text" id="p-id" maxlength="40" autocomplete="off" placeholder="未入力でもOK">
       </div>
       <div class="field">
@@ -610,22 +646,22 @@
         <label for="p-memo">メモ</label>
         <textarea id="p-memo" rows="2" maxlength="300" placeholder="未入力でもOK"></textarea>
       </div>
-      <div class="hint">入力しなくても計測できます。氏名など、個人が特定できる情報は書かないでください。</div>
+      <div class="hint">入力しなくても計測できます。氏名は書かないでください。</div>
     </div>
 
     <!-- 計測オプション -->
     <div class="menu-section">
       <div class="menu-section-title">計測オプション</div>
       <label class="check"><input type="checkbox" id="opt-hide-preview"> 計測中はカメラ映像を隠す</label>
-      <div class="hint">自分の顔が映っていると、瞬きに影響することがあります。映像を隠していても、顔が検出できているかは状態表示で分かります。</div>
-      <label class="check" style="margin-top:14px"><input type="checkbox" id="opt-blink-sound" checked> 計測を始めるまでは、瞬きを検出したら<b>音</b>で知らせる</label>
-      <label class="check" style="margin-top:8px"><input type="checkbox" id="opt-blink-light" checked> 計測を始めるまでは、瞬きを検出したら<b>光</b>で知らせる</label>
-      <div class="hint">しきい値が合っているかを確かめるためのものです。ゲームを映すモニターが別のときは、音が目安になります。計測を始めると止まります。</div>
+      <div class="hint">自分の顔が見えると、瞬きに影響することがあります。隠しても、検出の状態は表示されます。</div>
+      <label class="check" style="margin-top:14px"><input type="checkbox" id="opt-blink-sound" checked> <span data-i18n-html="opt-sound">計測を始めるまでは、瞬きを検出したら<b>音</b>で知らせる</span></label>
+      <label class="check" style="margin-top:8px"><input type="checkbox" id="opt-blink-light" checked> <span data-i18n-html="opt-light">計測を始めるまでは、瞬きを検出したら<b>光</b>で知らせる</span></label>
+      <div class="hint">しきい値の確認用です。計測を始めると止まります。</div>
       <div class="field" style="margin-top:14px">
         <label for="opt-planned">予定時間（分）</label>
         <input type="number" id="opt-planned" min="1" max="240" step="1" inputmode="numeric" placeholder="未設定（手動で終了）">
       </div>
-      <div class="hint">設定すると、その時間になったら音を鳴らして自動で終了します。</div>
+      <div class="hint">設定すると、時間になったら音を鳴らして自動で終了します。</div>
     </div>
 
     <!-- カメラ -->
@@ -638,15 +674,6 @@
     <!-- 検出感度（しきい値）：全員に表示 -->
     <div class="menu-section">
       <div class="menu-section-title">検出感度（しきい値）</div>
-      <div class="sens-btns" id="sens-btns">
-        <button class="sens-btn" data-ear="0.13">低め</button>
-        <button class="sens-btn" data-ear="0.17">やや低め</button>
-        <button class="sens-btn" data-ear="0.20">標準</button>
-        <button class="sens-btn active" data-ear="0.24">やや高め</button>
-        <button class="sens-btn" data-ear="0.30">高め</button>
-      </div>
-      <div class="sens-desc-txt" id="sens-desc">やや高め — 浅い瞬きでも反応しやすくなります</div>
-
       <!-- 目の開き具合（リアルタイム）。下のスライダーと同じ目盛りなので、位置をそのまま合わせられる -->
       <div class="eye-meter" id="eye-meter">
         <div class="eye-meter-head">
@@ -668,11 +695,11 @@
       </div>
 
       <div class="setting-row" style="margin-top:10px">
-        <label>しきい値 <span class="val" id="ear-val-txt">0.25</span></label>
-        <input type="range" id="ear-slider" min="0.05" max="0.60" step="0.01" value="0.25">
+        <label>しきい値 <span class="val" id="ear-val-txt">0.50</span></label>
+        <input type="range" id="ear-slider" min="0" max="1" step="0.01" value="0.50">
       </div>
       <button class="cam-ctrl-btn" id="btn-thr-mid" disabled>開いた時と閉じた時の間に合わせる</button>
-      <div class="hint">しきい値テストで決まった値が入っています。何回か瞬きをしてから、<b>白い線（しきい値）を「閉じた時」と「開いた時」の間</b>に動かしてください。バーが白い線より左に来たときに、瞬きとして数えられます。計測中に変えると、変えた時刻が記録に残ります。</div>
+      <div class="hint" data-i18n-html="thr-hint">何回か瞬きをしてから、<b>白い線（しきい値）を「閉じた時」と「開いた時」の間</b>に動かしてください。計測中に変えると、変えた時刻が記録されます。</div>
     </div>
 
     <!-- ここから管理者用（URLの末尾に ?admin を付けたときだけ表示） -->
@@ -693,10 +720,10 @@
       </div>
 
       <div class="menu-section">
-        <div class="menu-section-title">EAR とは？</div>
+        <div class="menu-section-title">「目の開き具合」とは？</div>
         <div class="hint" style="line-height:1.7">
-          Eye Aspect Ratio（目のアスペクト比）。目の縦幅 ÷ 横幅。<br>
-          通常: 0.25〜0.35 ／ 閉じた: 0.10〜0.15
+          AIが判定した目の開き具合を、普段目を開けているときを1.0として表しています。<br>
+          目を閉じると0に近づきます。姿勢やカメラの角度が変わっても、基準が自動でついていきます。
         </div>
       </div>
     </div>
@@ -704,12 +731,11 @@
     <!-- 研究へのご協力について（同意文：操作は不要） -->
     <div class="menu-section">
       <div class="menu-section-title">研究へのご協力について</div>
-      <ul class="notice-list">
+      <ul class="notice-list" data-i18n-html="notice">
         <li>この研究は、画面（動画・ゲーム・作業など）を見ているときの<b>瞬きの回数や間隔</b>を調べるものです。</li>
         <li>カメラ映像は<b>この端末の中だけで処理</b>され、<b>保存も送信もされません</b>。</li>
         <li>記録・送信されるのは、瞬きの時刻などの<b>数値データ</b>と、利用環境（ブラウザの種類・画面サイズなど）です。氏名は記録しません。</li>
-        <li>参加は自由です。途中でやめても、不利益は一切ありません。</li>
-        <li>高校生の方は、<b>保護者の方の同意</b>も確認したうえで参加してください。</li>
+        <li>学籍番号などのIDを入力した場合は、データと一緒に保存され、アンケートなどとの照合に使います。</li>
       </ul>
       <div class="hint">このアプリを使って計測を始めた時点で、上記の内容を確認したものとして扱います。</div>
     </div>
@@ -748,13 +774,13 @@
    <div id="panel-col">
     <!-- ── しきい値テストパネル ── -->
     <div class="measure-section" id="test-panel">
-      <div class="measure-section-title">// しきい値テスト</div>
-      <div class="tip">💡 実際に計測で使うモニター（ゲームや作業をする画面）を見ながらテストすると、精度が上がります。カメラは目の高さで、顔となるべく平行に置いてください。</div>
+      <div class="measure-section-title">// しきい値の自動設定</div>
+      <div class="tip">💡 ゲームや作業に使う画面を見ながら瞬きしてください。瞬きを拾うたびに音が鳴ります。</div>
 
-      <div class="tip tip-menu">🔧 しきい値の細かい調整は、左上のメニュー（☰）の「検出感度」からもできます。</div>
+      <div class="tip tip-menu">🔧 細かい調整は、メニュー（☰）の「検出感度」でできます。</div>
 
       <div class="test-box" id="test-run">
-        <div class="test-thr">テスト中のしきい値 <span id="test-thr-val">0.10</span></div>
+        <div class="test-thr">目の開き具合 <span id="test-thr-val">—</span></div>
         <div class="test-msg" id="test-msg">カメラを起動しています…</div>
         <div class="test-sub" id="test-sub"></div>
         <button id="btn-test-judge" class="cam-start-btn" disabled>判定する<span class="test-judge-key">[Space]</span></button>
@@ -763,8 +789,9 @@
       <div class="test-box" id="test-done" style="display:none">
         <div class="test-thr test-complete-label">// TEST COMPLETE</div>
         <div class="test-msg">あなたのしきい値は</div>
-        <div class="test-big-thr" id="test-result-thr">0.20</div>
-        <div class="test-note">※この数値を覚えておくと、次回からテストは不要になります。<span class="note-sub"><br>（この端末には自動で記録されます。別の端末では「いいえ」を選び、この数値を入力してください）</span></div>
+        <div class="test-big-thr" id="test-result-thr">0.50</div>
+        <div class="test-sub" id="test-result-detail"></div>
+        <div class="test-note">※この端末には自動で保存されます。別の端末では、この数値を入力してください。</div>
         <button id="btn-test-go" class="cam-start-btn">計測へ</button>
       </div>
 
@@ -773,7 +800,7 @@
 
     <!-- ── 計測パネル ── -->
     <div class="measure-section" id="measure-panel">
-      <div class="measure-section-title">// 計測<span class="admin-inline"> — しきい値 <span id="meas-thr">0.20</span></span></div>
+      <div class="measure-section-title">// 計測<span class="admin-inline"> — しきい値 <span id="meas-thr">0.50</span></span></div>
       <button id="btn-activity" class="activity-btn unset">活動：未選択 ▸ 選ぶ</button>
       <div class="measure-btns">
         <button class="meas-btn main" id="meas-btn-main" disabled>
@@ -784,12 +811,8 @@
           <span class="btn-num-label">休憩 <span class="btn-key-hint">[1]</span></span>
           <span class="btn-label" id="label-break">休憩開始</span>
         </button>
-        <button class="meas-btn" id="meas-btn-away" disabled>
-          <span class="btn-num-label">離席 <span class="btn-key-hint">[2]</span></span>
-          <span class="btn-label" id="label-away">離席開始</span>
-        </button>
       </div>
-      <div class="tip tip-check" id="check-tip">🔔 計測を始めるまでは、瞬きを検出すると音と光でお知らせします（しきい値の確認用）</div>
+      <div class="tip tip-check" id="check-tip">🔔 計測開始までは、瞬きを検出すると音と光で知らせます（しきい値の確認用）</div>
       <div class="admin-only admin-readout" id="admin-readout"></div>
       <button id="btn-back-start" class="cam-ctrl-btn" style="margin-top:8px">← 最初の画面に戻る</button>
     </div>
@@ -800,10 +823,10 @@
   <section class="stage-screen" id="screen-welcome">
     <div class="stage-badge">BLINK STUDY</div>
     <h1 class="stage-title">このアプリは初めてですか？</h1>
-    <p class="stage-desc">初めての方は、あなたに合った瞬き検出のしきい値を調べるテストを行います。<br>2回目以降の方は、前回のしきい値を入力してください。</p>
-    <p class="tip welcome-tip">💡 しきい値は、実際に計測で使うモニター（ゲームや作業をする画面）を見ながら設定すると、精度が上がります。<br>カメラは目の高さで、顔となるべく平行に置いてください（高すぎ・低すぎると瞬きを検出しにくくなります）。</p>
+    <p class="stage-desc">初めての方は、5回の瞬きでしきい値を自動で決めます。<br>2回目以降の方は、前回のしきい値を使えます。</p>
+    <p class="tip welcome-tip">💡 ゲームや作業に使う画面を見ながら設定すると、精度が上がります。<br>カメラは目の高さで、顔の正面に近い位置に置いてください。</p>
     <div class="stage-btns">
-      <button id="btn-first-yes" class="stage-btn primary">はい<small>しきい値テストを行う</small></button>
+      <button id="btn-first-yes" class="stage-btn primary">はい<small>5回瞬きして自動で設定</small></button>
       <button id="btn-first-no" class="stage-btn">いいえ<small>しきい値を入力する</small></button>
     </div>
     <div id="upload-status" class="status-line"></div>
@@ -816,12 +839,12 @@
     <h1 class="stage-title">前回のしきい値を入力してください</h1>
     <div class="hint" id="thr-hint" style="margin-top:4px"></div>
     <div class="thr-input-row">
-      <input type="number" id="thr-number" min="0.05" max="0.60" step="0.01" value="0.20" inputmode="decimal">
-      <input type="range" id="thr-range" min="0.05" max="0.60" step="0.01" value="0.20">
+      <input type="number" id="thr-number" min="0.05" max="0.95" step="0.01" value="0.50" inputmode="decimal">
+      <input type="range" id="thr-range" min="0.05" max="0.95" step="0.01" value="0.50">
     </div>
     <div class="stage-btns">
       <button id="btn-input-back" class="stage-btn">← 戻る</button>
-      <button id="btn-input-check" class="stage-btn">念のため確認テスト<small>この値の近くを5回の瞬きで確かめる</small></button>
+      <button id="btn-input-check" class="stage-btn">測り直す<small>5回の瞬きで、しきい値を自動で決め直す</small></button>
       <button id="btn-input-go" class="stage-btn primary">計測へ →</button>
     </div>
   </section>
@@ -831,6 +854,18 @@
     <div class="stage-badge">FINISHED</div>
     <h1 class="stage-title" id="end-title">計測が終了しました</h1>
     <p class="end-msg" id="end-msg"></p>
+    <div class="result" id="result">
+      <div class="result-tiles">
+        <div class="tile"><div class="tile-label">計測時間</div><div class="tile-value" id="r-dur">—</div><div class="tile-sub" id="r-det"></div></div>
+        <div class="tile"><div class="tile-label">瞬きの回数</div><div class="tile-value" id="r-count">—</div></div>
+        <div class="tile"><div class="tile-label">1分あたりの瞬き</div><div class="tile-value" id="r-rate">—</div><div class="tile-sub">顔が写っていた時間で計算</div></div>
+        <div class="tile"><div class="tile-label">瞬きの長さ（平均）</div><div class="tile-value" id="r-len">—</div></div>
+      </div>
+      <div class="result-charts">
+        <figure class="chart"><figcaption>1分あたりの瞬きの推移</figcaption><svg id="chart-rate" role="img" aria-label="1分あたりの瞬きの推移"></svg></figure>
+        <figure class="chart"><figcaption>目の開き具合の推移</figcaption><svg id="chart-open" role="img" aria-label="目の開き具合の推移"></svg></figure>
+      </div>
+    </div>
     <div class="status-line end-send" id="end-send"></div>
     <div class="stage-btns">
       <button id="btn-end-home" class="stage-btn primary" disabled>最初の画面に戻る</button>
@@ -853,6 +888,11 @@
   <div class="modal" id="modal-activity">
     <div class="modal-card">
       <h3 id="act-title">いま何をしていますか？</h3>
+      <div class="field act-field" id="act-id-box" style="display:none">
+        <label for="act-pid">学籍番号など（任意）</label>
+        <input type="text" id="act-pid" maxlength="40" autocomplete="off" placeholder="例：J123456">
+        <div class="hint">学生の方は学籍番号を入れてください。入れなくても計測できます。</div>
+      </div>
       <div class="chips" id="act-cats">
         <button class="chip" data-cat="動画">動画</button>
         <button class="chip" data-cat="映画">映画</button>
@@ -868,7 +908,7 @@
       </div>
       <div class="field act-field" id="act-other-box" style="display:none">
         <label for="act-detail">内容（詳しく）</label>
-        <input type="text" id="act-detail" maxlength="60" autocomplete="off" placeholder="例：読書、プログラミング など">
+        <input type="text" id="act-detail" maxlength="60" autocomplete="off" placeholder="内容を簡単に書いてください">
       </div>
       <div class="field act-field" id="act-eyewear-box">
         <label for="act-eyewear">眼鏡・コンタクトの使用</label>
@@ -880,7 +920,7 @@
           <option value="その他">その他</option>
         </select>
       </div>
-      <div class="hint">計測中に活動が変わったときは、もう一度ここで選び直すと、切り替えた時刻が記録されます。</div>
+      <div class="hint">計測中に活動が変わったら、ここで選び直してください（時刻が記録されます）。</div>
       <div class="modal-btns">
         <button id="btn-act-cancel" class="stage-btn">キャンセル</button>
         <button id="btn-act-ok" class="stage-btn primary" disabled>決定</button>
@@ -895,36 +935,41 @@
   // ============================================================
   //  BLINK STUDY — 瞬き計測システム（研究用）ver3.1
   // ============================================================
-  const APP_VERSION     = 'ver3.1';
-  const LIB_VERSIONS    = { faceMesh: '0.4.1633559619' };   // 読み込むMediaPipeのバージョン（固定）
+  const APP_VERSION     = 'ver4.1';
+  const LIB_VERSIONS    = { tasksVision: '0.10.35', faceLandmarkerModel: 'float16/1', faceMesh: '0.4.1633559619' };   // 読み込むMediaPipeのバージョン（固定）
   const CONSENT_VERSION = '2026-10';                         // 同意文を変えたら更新
 
   // ── データ送信先（Google Apps Script） ───────────────────────
   // 空のままなら、このPCにJSONをダウンロードします。
   const UPLOAD_URL        = 'https://script.google.com/macros/s/AKfycbyPab1181EJpo0zH67DQdFO8AjIz7-MF0VXDb9xSslqtxEbuYoCSYkxbx-hAFol9zVT/exec';   // Apps ScriptのウェブアプリURL（…/exec）
   const UPLOAD_TOKEN      = 'mabataki';   // Apps Script側のTOKENと同じ合言葉
-  const SERVER_VERSION    = '2026-10-30';   // Code.gs の SERVER_VERSION と同じ値（違えば、受信側が古いまま）
+  const SERVER_VERSION    = '2026-10-31b';   // Code.gs の SERVER_VERSION と同じ値（違えば、受信側が古いまま）
   const UPLOAD_TIMEOUT_MS = 15000;
   const UPLOAD_RETRIES    = 2;    // 送信の試行回数
 
   // ── 調整用の定数 ─────────────────────────────────────────────
-  const DET   = { hysteresis: 0.02, minIntervalMs: 150 };  // 目が開いたと判定する余裕 / 瞬きの最短間隔
-  const LOST_MIN_MS = 300;                                 // これ以上顔が見えない区間を「未検出」とする
+  const DET   = { hysteresis: 0.06, minIntervalMs: 150, maxClosedMs: 1000 };  // 目が開いたと判定する余裕（開き具合の割合） / 瞬きの最短間隔 / これより長い閉じは瞬きに数えない
+  const LOST_MIN_MS = 300;
+  const AWAY_MIN_MS = 5000;   // 顔がこれ以上続けて写らなかったら「離席」として記録（離席ボタンの代わり）                                 // これ以上顔が見えない区間を「未検出」とする
   const GUIDE = { farFace: 0.20, nearFace: 0.70, edgeX: 0.25, edgeYlo: 0.20, edgeYhi: 0.80, dark: 50,
-                  pitchHigh: 20, pitchLow: -20 };   // カメラの上下の傾き(度)：+が上すぎ、−が下すぎ
+                  pitchHigh: 20, pitchLow: -20, yawMax: 30 };   // カメラの上下(度)：+が上すぎ、−が下すぎ / 左右(度)
+  // 新しい顔認識（瞬きスコア）は顔の向きに強いので、カメラの角度の警告をゆるめる
+  const GUIDE_LM = { pitchHigh: 30, pitchLow: -30, yawMax: 45 };
   const lowFpsLimit = () => cfg.maxFps * 0.5;
   const STALL = { hiddenMs: 5000, visibleMs: 20000, noteMs: 1500 };  // 画面が止まったと判断する時間
-  const TEST  = { start: 0.10, step: 0.05, confirmStep: 0.02, max: 0.40, target: 5,
-                  countdownSec: 3, autoJudgeSec: 20, pauseMs: 3000 };
+  // しきい値の自動設定：5回瞬きしてもらい、閉じた時と開いた時の値の中間をしきい値にする
+  const TEST  = { target: 5, minDips: 3, dipDown: 0.80, dipUp: 0.90, minSeparation: 0.25, thrMin: 0.25, thrMax: 0.80, timeoutSec: 20,
+                  countdownSec: 3, pauseMs: 3000 };
   const GENRES = ['FPS / TPS', 'バトルロイヤル', 'MOBA', 'アクション', 'アクションRPG', 'RPG', 'アドベンチャー',
                   'オープンワールド', 'シミュレーション', '経営・育成', '戦略・RTS', 'パズル', '音楽・リズム',
                   'スポーツ', 'レース', '格闘', 'ホラー', 'サンドボックス・建築', 'カード・ボードゲーム',
                   'ビジュアルノベル', 'ローグライク', 'プラットフォーマー', 'シューティング（STG）', 'その他・不明'];
 
-  const PENDING_KEY = 'blink_pending_v1', LAST_THR_KEY = 'blink_last_thr_v1',
-        THR_BY_ID_KEY = 'blink_thr_by_id_v1', HIDE_KEY = 'blink_opt_hide_v2';
+  // しきい値の目盛りが変わったので、保存先も変える（以前のEARのしきい値は使えない）
+  const PENDING_KEY = 'blink_pending_v1', LAST_THR_KEY = 'blink_last_thr_v2',
+        THR_BY_ID_KEY = 'blink_thr_by_id_v2', HIDE_KEY = 'blink_opt_hide_v2';
 
-  let cfg = { earThreshold: 0.25, minClosedMs: 30, maxFps: 30 };
+  let cfg = { earThreshold: 0.50, minClosedMs: 30, maxFps: 30 };   // earThreshold：開き具合（普段=1.0）がこれを下回ったら「閉じた」
   const ADMIN = new URLSearchParams(location.search).has('admin');
   if (ADMIN) document.body.classList.add('admin');
 
@@ -940,6 +985,334 @@
     get(k, d = null) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
   };
+
+  // ============================================================
+  //  表示言語（日本語 / English）
+  //  プログラム内の文は日本語のまま動かし、画面に出る直前に英語へ置き換える。
+  //  記録データ（JSON・スプレッドシート）は、表示言語にかかわらず日本語のまま。
+  // ============================================================
+  const LANG_KEY = 'blink_lang_v1';
+  let LANG = store.get(LANG_KEY, 'ja') === 'en' ? 'en' : 'ja';
+
+  const EN = {
+    '学籍番号など（任意）': 'Student number etc. (optional)',
+    '例：J123456': 'e.g. J123456',
+    '学生の方は学籍番号を入れてください。入れなくても計測できます。': 'Students: please enter your student number. You can measure without it.',
+    '下を向いています（その間は瞬きを数えません）': 'You are looking down (blinks are not counted meanwhile)',
+    '計測時間': 'Duration',
+    '瞬きの回数': 'Blinks',
+    '1分あたりの瞬き': 'Blinks per minute',
+    '顔が写っていた時間で計算': 'Based on the time your face was visible',
+    '瞬きの長さ（平均）': 'Blink length (avg)',
+    '1分あたりの瞬きの推移': 'Blinks per minute over time',
+    '目の開き具合の推移': 'Eye openness over time',
+    'データが足りません': 'Not enough data',
+    '5回瞬きして自動で設定': 'Set automatically with 5 blinks',
+    // ── 共通・ヘッダー ──
+    'BLINK STUDY — 瞬き計測システム': 'BLINK STUDY — Blink Measurement System',
+    '瞬き検出アプリ ver4.1（研究用）': 'Blink Detection App ver4.1 (Research)',
+    'メニュー': 'Menu',
+    // ── メニュー ──
+    '// 計測の設定': '// Measurement settings',
+    '参加者情報（任意）': 'Participant info (optional)',
+    'ID（学籍番号など）': 'ID (e.g. student number)',
+    'セッション番号': 'Session number',
+    'メモ': 'Notes',
+    '未入力でもOK': 'Optional',
+    '入力しなくても計測できます。氏名は書かないでください。': 'You can measure without filling these in. Do not enter your name.',
+    '計測オプション': 'Measurement options',
+    '計測中はカメラ映像を隠す': 'Hide the camera image during measurement',
+    '自分の顔が見えると、瞬きに影響することがあります。隠しても、検出の状態は表示されます。': 'Seeing your own face can affect how you blink. The detection status is still shown when hidden.',
+    'しきい値の確認用です。計測を始めると止まります。': 'For checking the threshold. It stops once the measurement starts.',
+    '予定時間（分）': 'Planned duration (min)',
+    '未設定（手動で終了）': 'Not set (end manually)',
+    '設定すると、時間になったら音を鳴らして自動で終了します。': 'If set, a sound plays and the measurement ends automatically at that time.',
+    'カメラ': 'Camera',
+    '（カメラ起動後に選べます）': '(Available after the camera starts)',
+    '外付けWebカメラを使うときは、ここで切り替えます（計測中は変更できません）。': 'Switch here when using an external webcam (cannot be changed during a measurement).',
+    '検出感度（しきい値）': 'Detection sensitivity (threshold)',
+    '低め': 'Low', 'やや低め': 'Med-low', '標準': 'Standard', 'やや高め': 'Med-high', '高め': 'High',
+    '低め — まぶたが大きく動いたときだけ反応します': 'Low — reacts only to large eyelid movements',
+    'やや低め — しっかり目を閉じると反応します': 'Med-low — reacts when the eyes close firmly',
+    '標準 — 通常の瞬きで反応します': 'Standard — reacts to normal blinks',
+    'やや高め — 浅い瞬きでも反応しやすくなります': 'Med-high — reacts more easily to shallow blinks',
+    '高め — 少し目を細めるだけで反応します': 'High — reacts even to slight squinting',
+    '👁 目の開き具合': '👁 Eye openness',
+    '閉じた時': 'Closed', 'しきい値': 'Threshold', '開いた時': 'Open',
+    'カメラが動いている間（しきい値テスト・計測画面）に表示されます。': 'Shown while the camera is running (threshold test and measurement screens).',
+    '何回か瞬きをすると、「閉じた時」の位置が表示されます。': 'Blink a few times and the "Closed" position will appear.',
+    'しきい値が低すぎます（閉じた時より左）。瞬きを数えられません。右に動かしてください。': 'The threshold is too low (left of "Closed"). Blinks cannot be counted. Move it to the right.',
+    'しきい値が高すぎます（開いた時より右）。目を開けていても瞬きと数えてしまいます。左に動かしてください。': 'The threshold is too high (right of "Open"). Open eyes will be counted as blinks. Move it to the left.',
+    'しきい値は「閉じた時」と「開いた時」の間にあります。': 'The threshold is between "Closed" and "Open".',
+    '開いた時と閉じた時の間に合わせる': 'Set it between Open and Closed',
+    '顔が見えません': 'Face not visible',
+    'その他の検出設定 — 管理者': 'Other detection settings — admin',
+    '最小閉眼時間': 'Minimum eye-closure time',
+    'この時間より短い目の閉じは、瞬きに数えません。処理が遅い（fpsが低い）端末では、短すぎると取りこぼします。': 'Eye closures shorter than this are not counted as blinks. On slow devices (low fps), values that are too short may miss blinks.',
+    '処理回数の上限': 'Processing rate limit',
+    '回/秒': '/s',
+    '下げるほどパソコンへの負荷は軽くなりますが、速い瞬きを取りこぼしやすくなります。動作が重いときだけ下げてください。': 'Lower values reduce the load on the computer but make it easier to miss fast blinks. Lower it only if the app runs slowly.',
+    'しきい値を計測中に変更すると、変更した時刻が記録に残ります。': 'If you change the threshold during a measurement, the time of the change is recorded.',
+    '「目の開き具合」とは？': 'What is "eye openness"?',
+    'AIが判定した目の開き具合を、普段目を開けているときを1.0として表しています。': 'It shows how open your eyes are, as judged by AI, with your normal open eyes as 1.0.',
+    '目を閉じると0に近づきます。姿勢やカメラの角度が変わっても、基準が自動でついていきます。': 'It approaches 0 when your eyes close. The reference adjusts automatically when your posture or the camera angle changes.',
+    'カメラが横に寄りすぎています。顔がもう少し正面から写る位置に置いてください': 'The camera is too far to the side. Place it where it sees your face more from the front',
+    '研究へのご協力について': 'About taking part in this study',
+    'このアプリを使って計測を始めた時点で、上記の内容を確認したものとして扱います。': 'Starting a measurement with this app means you have read the above.',
+    // ── カメラ枠 ──
+    '計測中です': 'Measuring',
+    '（カメラ映像は非表示にしています）': '(the camera image is hidden)',
+    '// カメラを起動して顔を正面に向けてください': '// Start the camera and face it directly',
+    '▶ カメラを起動': '▶ Start camera',
+    'カメラ未接続': 'Camera not connected',
+    '🔄 目の位置をリセット': '🔄 Reset eye tracking',
+    // ── しきい値テスト ──
+    '// しきい値の自動設定': '// Automatic threshold setup',
+    '目の開き具合': 'Eye openness',
+    'もう一度お願いします': 'Please try again',
+    '目を閉じた時と開いた時の差が小さく、うまく測れませんでした。カメラの位置や部屋の明るさを確認して、もう一度お願いします': 'The difference between closed and open eyes was too small to measure. Please check the camera position and the room lighting, then try again.',
+    '💡 ゲームや作業に使う画面を見ながら瞬きしてください。瞬きを拾うたびに音が鳴ります。': '💡 Blink while looking at the screen you use for your game or work. A sound plays each time a blink is detected.',
+    '🔧 細かい調整は、メニュー（☰）の「検出感度」でできます。': '🔧 Fine-tune it under "Detection sensitivity" in the menu (☰).',
+    'テスト中のしきい値': 'Threshold being tested',
+    'カメラを起動しています…': 'Starting the camera…',
+    '判定する': 'Check',
+    'あなたのしきい値は': 'Your threshold is',
+    '※この端末には自動で保存されます。別の端末では、この数値を入力してください。': '* It is saved automatically on this device. On another device, enter this number.',
+    '（この端末には自動で記録されます。別の端末では「いいえ」を選び、この数値を入力してください）': '(It is saved automatically on this device. On another device, choose "No" and enter this number.)',
+    '計測へ': 'Go to measurement',
+    '← 最初の画面に戻る': '← Back to the start screen',
+    'カメラに顔を向けてお待ちください': 'Please face the camera and wait',
+    '顔認識を準備しています…': 'Preparing face recognition…',
+    '初回は読み込みに時間がかかります（数十秒かかることがあります）。そのままお待ちください': 'The first load takes a while (it can take tens of seconds). Please wait.',
+    '顔認識を読み込めませんでした': 'Could not load face recognition',
+    // ── 計測画面 ──
+    '// 計測': '// Measurement',
+    '— しきい値': '— threshold',
+    '活動：未選択 ▸ 選ぶ': 'Activity: not selected ▸ Choose',
+    '計測開始': 'Start', '計測終了': 'Stop',
+    '顔認識を準備中…': 'Preparing face recognition…',
+    '休憩': 'Break', '休憩開始': 'Start break', '休憩終了': 'End break',
+    '離席': 'Away', '離席開始': 'Start away', '離席終了': 'End away',
+    '🔔 計測開始までは、瞬きを検出すると音と光で知らせます（しきい値の確認用）': '🔔 Until the measurement starts, a sound and light signal each detected blink (to check the threshold)',
+    // ── 最初の画面 ──
+    'このアプリは初めてですか？': 'Is this your first time using this app?',
+    '初めての方は、5回の瞬きでしきい値を自動で決めます。': 'If this is your first time, the threshold is set automatically with 5 blinks.',
+    '2回目以降の方は、前回のしきい値を使えます。': 'If you have used it before, you can use your previous threshold.',
+    '💡 ゲームや作業に使う画面を見ながら設定すると、精度が上がります。': '💡 Accuracy improves if you look at the screen you use for your game or work while setting it up.',
+    'カメラは目の高さで、顔の正面に近い位置に置いてください。': 'Place the camera at eye level, as close to the front of your face as possible.',
+    'はい': 'Yes', '5回瞬きして自動で設定': 'Run the threshold test',
+    'いいえ': 'No', 'しきい値を入力する': 'Enter a threshold',
+    '// データ送信: 未設定（計測終了時にこのPCへ保存）': '// Data upload: not set (saved to this PC when the measurement ends)',
+    '// データ送信: 設定済み（接続を確認中…）': '// Data upload: set (checking connection…)',
+    '⚠ データ送信: 接続できません（URLと公開設定を確認）': '⚠ Data upload: cannot connect (check the URL and sharing settings)',
+    '// データ送信: 設定済み（接続できません：ネットワークまたはURLを確認）': '// Data upload: set (cannot connect: check the network or URL)',
+    // ── しきい値の入力 ──
+    '前回のしきい値を入力してください': 'Enter your previous threshold',
+    '← 戻る': '← Back',
+    '測り直す': 'Measure again',
+    '5回の瞬きで、しきい値を自動で決め直す': 'Set the threshold again automatically with 5 blinks',
+    '計測へ →': 'Go to measurement →',
+    'この端末で前回使った値': 'Value last used on this device',
+    // ── 終了 ──
+    '計測が終了しました': 'The measurement has ended',
+    'ご協力ありがとうございました。': 'Thank you for taking part.',
+    '予定の時間になったため、計測を終了しました。ご協力ありがとうございました。': 'The planned time was reached, so the measurement ended. Thank you for taking part.',
+    'ブラウザを閉じた（または、この画面が見えなくなった）ため、計測を終了しました。それまでのデータは保存されています。': 'The measurement ended because the browser was closed (or this screen was no longer visible). The data up to that point has been saved.',
+    '画面の処理が止まったため、計測を終了しました。それまでのデータは保存されています。': 'The measurement ended because the screen stopped updating. The data up to that point has been saved.',
+    'カメラが切断されたため、計測を終了しました。それまでのデータは保存されています。': 'The measurement ended because the camera was disconnected. The data up to that point has been saved.',
+    'データを保存しています…': 'Saving data…',
+    '✅ データを送信しました。': '✅ The data has been sent.',
+    '✅ データをこのPCに保存しました（ダウンロードフォルダ）。': '✅ The data has been saved on this PC (Downloads folder).',
+    '最初の画面に戻る': 'Back to the start screen',
+    '計測を終了しますか？': 'End the measurement?',
+    '終了すると、ここまでのデータを保存・送信します。': 'Ending will save and send the data recorded so far.',
+    '続ける': 'Continue', '終了する': 'End',
+    // ── 活動の選択 ──
+    'いま何をしていますか？': 'What are you doing now?',
+    'これから何をする予定ですか？': 'What are you going to do?',
+    '活動などに変更はありますか？': 'Has your activity or anything else changed?',
+    '動画': 'Video', '映画': 'Movie', '作業': 'Work', 'ゲーム': 'Game', 'その他': 'Other',
+    'ゲームのジャンル': 'Game genre', 'ゲーム名（任意）': 'Game title (optional)', '書かなくてもOK': 'Optional',
+    '内容（詳しく）': 'Details', '内容を簡単に書いてください': 'Briefly describe what you are doing',
+    '眼鏡・コンタクトの使用': 'Glasses / contact lenses',
+    '未回答': 'No answer', 'なし（裸眼）': 'None', '眼鏡': 'Glasses', 'コンタクトレンズ': 'Contact lenses',
+    '計測中に活動が変わったら、ここで選び直してください（時刻が記録されます）。': 'If your activity changes during the measurement, choose again here (the time is recorded).',
+    'キャンセル': 'Cancel', '決定': 'OK', '未選択': 'not selected',
+    'バトルロイヤル': 'Battle royale', 'アクション': 'Action', 'アクションRPG': 'Action RPG', 'アドベンチャー': 'Adventure',
+    'オープンワールド': 'Open world', 'シミュレーション': 'Simulation', '経営・育成': 'Management & raising', '戦略・RTS': 'Strategy / RTS',
+    'パズル': 'Puzzle', '音楽・リズム': 'Music & rhythm', 'スポーツ': 'Sports', 'レース': 'Racing', '格闘': 'Fighting', 'ホラー': 'Horror',
+    'サンドボックス・建築': 'Sandbox & building', 'カード・ボードゲーム': 'Card & board games', 'ビジュアルノベル': 'Visual novel',
+    'ローグライク': 'Roguelike', 'プラットフォーマー': 'Platformer', 'シューティング（STG）': 'Shooter (STG)', 'その他・不明': 'Other / unknown',
+    // ── 状態表示・お知らせ ──
+    'カメラ接続中 — 顔を正面に向けてください': 'Camera connected — please face it directly',
+    '顔認識を準備しています…（初回は読み込みに時間がかかります）': 'Preparing face recognition… (the first load takes a while)',
+    '顔が検出されていません': 'No face detected',
+    '顔を検出中 ✓': 'Face detected ✓',
+    '部屋が暗いようです。明るくしてください': 'The room seems dark. Please make it brighter',
+    '顔が遠すぎます。少し近づいてください': 'Your face is too far. Please move a little closer',
+    '顔が近すぎます。少し離れてください': 'Your face is too close. Please move back a little',
+    '顔が画面の端にあります。中央に寄ってください': 'Your face is near the edge. Please move to the center',
+    'カメラが高すぎます。目の高さまで下げて、顔と平行にしてください': 'The camera is too high. Lower it to eye level, parallel to your face',
+    'カメラが低すぎます。目の高さまで上げて、顔と平行にしてください': 'The camera is too low. Raise it to eye level, parallel to your face',
+    'カメラが切断されました': 'The camera was disconnected',
+    'カメラが切断されました。もう一度起動してください': 'The camera was disconnected. Please start it again',
+    'カメラ起動完了': 'Camera started',
+    '先にカメラを起動してください': 'Please start the camera first',
+    '目の位置を再検出しました': 'Eye tracking was reset',
+    '再検出に失敗しました — もう一度お試しください': 'Reset failed — please try again',
+    '計測中はカメラを変更できません': 'The camera cannot be changed during a measurement',
+    '計測開始（活動は「未選択」で記録されます）': 'Measurement started (activity will be recorded as "not selected")',
+    'ネットワークに接続されていません。計測は続けられますが、送信は後で行われます': 'Not connected to the network. You can keep measuring; the data will be sent later',
+    'ネットワークが切れました。データは後で再送します': 'The network connection was lost. The data will be sent later',
+    '活動の切り替えを記録しました': 'Activity change recorded',
+    '取り消す': 'Undo',
+    '再送中…': 'resending…',
+    '自動で再送します': 'will be resent automatically',
+    // ── カメラのエラー（ダイアログ）──
+    'カメラの使用が許可されていません。\nブラウザのアドレス欄のカメラの設定を「許可」にしてください。': 'Camera access is not allowed.\nPlease set the camera permission to "Allow" in the browser address bar.',
+    'カメラが見つかりません。カメラが接続されているか確認してください。': 'No camera found. Please check that a camera is connected.',
+    'カメラを使えません。ほかのアプリ（Zoom・Teamsなど）がカメラを使っていないか確認してください。': 'The camera cannot be used. Please check that no other app (Zoom, Teams, etc.) is using it.',
+    'このカメラでは指定の設定が使えません。メニューから別のカメラを選んでください。': 'This camera does not support the required settings. Please choose another camera in the menu.',
+    '顔認識の部品を読み込めませんでした。インターネットに接続されているか確認して、ページを開き直してください。': 'Could not load the face-recognition component. Please check your internet connection and reload the page.',
+    '応答がJSONではありません（デプロイの「アクセスできるユーザー」が「全員」か、URLが/execで終わるか確認）': 'The response was not JSON (check that the deployment is shared with "Anyone" and that the URL ends with /exec)',
+  };
+
+  // 文の中に数値などが入るもの
+  const ENP = [
+    [/^(\d+)回 瞬きしてください$/, m => `Please blink ${m[1]} times`],
+    [/^(\d+)回以上が続いたため、しきい値が高すぎるようです。([\d.]+) に下げてもう一度テストします$/, m => `${m[1]} or more blinks were detected twice in a row, so the threshold seems too high. Lowering it to ${m[2]} and testing again`],
+    [/^(\d+)回以上が続きました。同じしきい値 ([\d.]+) でもう一度テストします$/, m => `${m[1]} or more blinks were detected again. Testing again with the same threshold ${m[2]}`],
+    [/^(\d+)回以上検出しました。同じしきい値 ([\d.]+) でもう一度テストします$/, m => `${m[1]} or more blinks were detected. Testing again with the same threshold ${m[2]}`],
+    [/^(\d+)回未満でした。しきい値を ([\d.]+) に上げてもう一度テストします$/, m => `Fewer than ${m[1]} blinks. Raising the threshold to ${m[2]} and testing again`],
+    [/^(\d+)回未満でした。しきい値を ([\d.]+) に少し上げてもう一度テストします$/, m => `Fewer than ${m[1]} blinks. Raising the threshold slightly to ${m[2]} and testing again`],
+    [/^(\d+)回未満でした。同じしきい値 ([\d.]+) でもう一度テストします$/, m => `Fewer than ${m[1]} blinks. Testing again with the same threshold ${m[2]}`],
+    [/^しきい値が上限（([\d.]+)）のため、同じ値でもう一度テストします。顔の向きや明るさを確認してください$/, m => `The threshold is at its maximum (${m[1]}), so testing again with the same value. Please check your face direction and the lighting`],
+    [/^まもなく開始します… (\d+)$/, m => `Starting soon… ${m[1]}`],
+    [/^瞬きし終わったら「判定する」ボタンか Space キーを押してください（(\d+)秒で自動判定）$/, m => `When you have finished blinking, press the "Check" button or the Space key (auto-check after ${m[1]} s)`],
+    [/^検出 (\d+)回$/, m => `Detected: ${m[1]}`],
+    [/^検出: (\d+) \/ (\d+)回（(\d+)回で自動的に決まります。Space キーでも決定できます）$/, m => `Detected: ${m[1]} / ${m[2]} (set automatically after ${m[3]} blinks; you can also press Space)`],
+    [/^顔が写っていた時間 (\S+)（(\d+)%）$/, m => `Face visible: ${m[1]} (${m[2]}%)`],
+    [/^瞬きを(\d+)回しか検出できませんでした。顔がカメラに写っているか確認して、もう一度お願いします$/, m => `Only ${m[1]} blink(s) were detected. Please check that your face is visible to the camera, then try again.`],
+    [/^閉じた時 ([\d.]+) ／ 開いた時 ([\d.]+) の中間に設定しました$/, m => `Set halfway between closed (${m[1]}) and open (${m[2]})`],
+    [/^この端末で前回使った値：([\d.]+)（違う場合は書き換えてください）$/, m => `Value last used on this device: ${m[1]} (change it if it is wrong)`],
+    [/^ID「(.*)」の前回の値：([\d.]+)（違う場合は書き換えてください）$/, m => `Last value for ID "${m[1]}": ${m[2]} (change it if it is wrong)`],
+    [/^しきい値は ([\d.]+)〜([\d.]+) の範囲で入力してください$/, m => `Please enter a threshold between ${m[1]} and ${m[2]}`],
+    [/^しきい値を ([\d.]+) にしました$/, m => `Threshold set to ${m[1]}`],
+    [/^(休憩|離席)(開始|終了)を記録$/, m => `${m[1] === '休憩' ? 'Break' : 'Away'} ${m[2] === '開始' ? 'start' : 'end'} recorded`],
+    [/^(休憩|離席)開始を取り消しました$/, m => `${m[1] === '休憩' ? 'Break' : 'Away'} start undone`],
+    [/^(休憩|離席)終了を取り消しました（.*中に戻りました）$/, m => m[1] === '休憩' ? 'Break end undone (back on break)' : 'Away end undone (back to away)'],
+    [/^活動：(.+) ▸ 変更$/, m => `Activity: ${m[1].split(' / ').map(x => EN[x] || x).join(' / ')} ▸ Change`],
+    [/^カメラ (\d+)$/, m => `Camera ${m[1]}`],
+    [/^処理が遅くなっています（(\d+)fps）$/, m => `Processing is slow (${m[1]} fps)`],
+    [/^瞬き (\S+) ／ 開き具合 (\S+) ／ (\S+)fps ／ 顔幅 (\S+) ／ (\S+)$/, m => `Blinks ${m[1]} / openness ${m[2]} / ${m[3]} fps / face width ${m[4]} / ${m[5] === '旧版' ? 'legacy' : m[5]}`],
+    [/^\/\/ データ送信: 設定済み（接続OK・受信側 (.+)）$/, m => `// Data upload: set (connected · receiver ${m[1]})`],
+    [/^⚠ データ送信: 受信側（Apps Script）が古いバージョンのままです（(.*)）。Apps Scriptで「デプロイを管理 → 編集 → 新バージョン」で再デプロイしてください$/,
+      m => `⚠ Data upload: the receiver (Apps Script) is still an old version (${m[1] === '旧版' ? 'old' : m[1]}). Redeploy it in Apps Script via "Deploy → Manage deployments → Edit → New version"`],
+    [/^\/\/ 未送信のデータが (\d+) 件あります（(.*)）$/, m => `// ${m[1]} unsent data file(s) (${EN[m[2]] || m[2]})`],
+    [/^⚠ 送信できなかったため、このPCに保存しました。次にこのアプリを開いたとき、自動で再送します。（原因: ([\s\S]*)）$/, m => `⚠ Could not send, so the data was saved on this PC. It will be resent automatically the next time you open this app. (Reason: ${tr(m[1])})`],
+    [/^(\d+)秒以内に応答がありませんでした$/, m => `No response within ${m[1]} seconds`],
+    [/^サーバーのエラー: ([\s\S]*)$/, m => `Server error: ${m[1]}`],
+    [/^通信エラー: ([\s\S]*)$/, m => `Network error: ${m[1]}`],
+    [/^顔認識がうまく動いていません（([\s\S]*)）。ページを開き直してください$/, m => `Face recognition is not working properly (${m[1]}). Please reload the page`],
+    [/^顔認識を読み込めませんでした（([\s\S]*)）。ネットワークを確認して、「目の位置をリセット」を押すか、ページを開き直してください$/, m => `Could not load face recognition (${m[1]}). Check the network, then press "Reset eye tracking" or reload the page`],
+    [/^カメラを起動できませんでした。\n（([\s\S]*)）$/, m => `Could not start the camera.\n(${m[1]})`],
+  ];
+
+  // 日本語の文 → 英語（英語表示のときだけ）。前後の空白は残す
+  function tr(text) {
+    if (LANG !== 'en' || !text || !/[぀-ヿ一-鿿！-～※]/.test(text)) return text;
+    const t = text.trim();
+    let out = EN[t];
+    if (out === undefined) {
+      for (const [re, fn] of ENP) { const m = t.match(re); if (m) { out = fn(m); break; } }
+    }
+    if (out === undefined) return text;
+    const lead = text.match(/^\s*/)[0], trail = text.match(/\s*$/)[0];
+    return lead + out + trail;
+  }
+
+  // 文が混ざった（太字を含む）ところは、まとめて差し替える
+  const EN_HTML = {
+    'notice': '<li>This study looks at <b>how often and at what intervals people blink</b> while looking at a screen (videos, games, work, etc.).</li>' +
+      '<li>The camera image is <b>processed only on this device</b> and is <b>never saved or sent</b>.</li>' +
+      '<li>Only <b>numerical data</b>, such as blink times, and your environment (browser type, screen size, etc.) are recorded and sent. Your name is not recorded.</li>' +
+      '<li>If you enter an ID such as your student number, it is saved with the data and used to match it with questionnaires.</li>',
+    'thr-hint': 'After blinking a few times, move <b>the white line (threshold) between \u201cClosed\u201d and \u201cOpen\u201d</b>. If you change it during a measurement, the time of the change is recorded.',
+    'opt-sound': 'Until the measurement starts, signal each detected blink with a <b>sound</b>',
+    'opt-light': 'Until the measurement starts, signal each detected blink with a <b>light</b>',
+  };
+
+  const origText = new WeakMap(), origAttr = new WeakMap();
+  const SKIP = node => { const p = node.parentElement; return !p || p.closest('script, style, [data-i18n-html], .lang-keep'); };
+
+  function translateNode(node) {
+    if (node.nodeType === 3) {
+      if (SKIP(node)) return;
+      const v = node.nodeValue, out = tr(v);
+      if (out !== v) { origText.set(node, v); node.nodeValue = out; }
+      return;
+    }
+    if (node.nodeType !== 1 || node.closest('script, style, .lang-keep')) return;
+    if (node.hasAttribute('data-i18n-html') || node.closest('[data-i18n-html]')) { applyHtml(node.closest('[data-i18n-html]')); return; }
+    ['placeholder', 'title', 'aria-label'].forEach(a => {
+      const v = node.getAttribute(a);
+      if (v) { const out = tr(v); if (out !== v) { const o = origAttr.get(node) || {}; o[a] = v; origAttr.set(node, o); node.setAttribute(a, out); } }
+    });
+    const w = document.createTreeWalker(node, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    let n = w.nextNode();
+    while (n) {
+      if (n.nodeType === 1) {
+        if (n.hasAttribute('data-i18n-html')) applyHtml(n);
+        ['placeholder', 'title', 'aria-label'].forEach(a => {
+          const v = n.getAttribute(a);
+          if (v) { const out = tr(v); if (out !== v) { const o = origAttr.get(n) || {}; o[a] = v; origAttr.set(n, o); n.setAttribute(a, out); } }
+        });
+      } else translateNode(n);
+      n = w.nextNode();
+    }
+  }
+  function applyHtml(el) {
+    if (!el) return;
+    if (el.dataset.ja === undefined) el.dataset.ja = el.innerHTML;
+    const html = LANG === 'en' ? EN_HTML[el.dataset.i18nHtml] : el.dataset.ja;
+    if (html !== undefined && el.innerHTML !== html) el.innerHTML = html;
+  }
+  function restoreJa() {
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    let n = w.nextNode();
+    while (n) {
+      if (n.nodeType === 3) { if (origText.has(n)) { n.nodeValue = origText.get(n); origText.delete(n); } }
+      else {
+        const o = origAttr.get(n); if (o) { Object.keys(o).forEach(a => n.setAttribute(a, o[a])); origAttr.delete(n); }
+        if (n.hasAttribute('data-i18n-html')) applyHtml(n);
+      }
+      n = w.nextNode();
+    }
+  }
+
+  // 画面の文字が変わるたびに、英語表示なら置き換える
+  const i18nObserver = new MutationObserver(muts => {
+    if (LANG !== 'en') return;
+    for (const m of muts) {
+      if (m.type === 'characterData') translateNode(m.target);
+      else m.addedNodes.forEach(translateNode);
+    }
+  });
+
+  let jaTitle = document.title;
+  function applyLanguage(lang) {
+    LANG = lang === 'en' ? 'en' : 'ja';
+    store.set(LANG_KEY, LANG);
+    document.documentElement.lang = LANG;
+    document.title = LANG === 'en' ? (EN[jaTitle] || jaTitle) : jaTitle;
+    if (LANG === 'en') translateNode(document.body); else restoreJa();
+    const sel = document.getElementById('lang-select'); if (sel) sel.value = LANG;
+  }
+
+  // ダイアログ（alert）の文も置き換える
+  const _alert = window.alert.bind(window);
+  window.alert = msg => _alert(tr(String(msg)));
+
 
   // ── toast（右側に「取り消す」などのボタンも付けられる）──────────
   let toastTimer = null;
@@ -961,7 +1334,21 @@
 
   // ── 画面遷移 ─────────────────────────────────────────────────
   let stage = 'welcome';   // welcome | input | test | measure | end
-  function setStage(s) { stage = s; document.body.dataset.stage = s; }
+  function setStage(s) { stage = s; document.body.dataset.stage = s; keepScreenOn(s === 'test' || s === 'measure'); }
+
+  // しきい値テスト・計測の画面では、画面が自動で消えないようにする（消えると計測が止まるため）
+  var wakeLock = null;
+  async function keepScreenOn(on) {
+    try {
+      if (on && !wakeLock && 'wakeLock' in navigator && document.visibilityState === 'visible') {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      } else if (!on && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
+    } catch (e) { /* 使えない端末では何もしない */ }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && (stage === 'test' || stage === 'measure')) keepScreenOn(true);
+  });
 
   // メニューのスライダー経由でcfgと表示を同期する
   function setThreshold(v) {
@@ -973,34 +1360,101 @@
   // ============================================================
   //  カメラ・FaceMesh
   // ============================================================
-  let faceMesh = null, cameraRunning = false, mediaStream = null, frameLoopId = null;
+  let cameraRunning = false, mediaStream = null, frameLoopId = null;
   let camInfo = null, selectedCameraId = '';
   let camAspect = 4 / 3;
 
-  function dist(a, b) { return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2); }
-  function ear6(lm, t, b, l, r, t2, b2) {
-    return (dist(lm[t], lm[b]) + dist(lm[t2], lm[b2])) / (2 * dist(lm[l], lm[r]));
+  // ============================================================
+  //  顔認識のエンジン
+  //  1) MediaPipe Face Landmarker：AIの瞬きスコア（eyeBlink）で判定。顔の向きやカメラの位置に強い。
+  //     GPU と CPU のうち、その端末で速い方を自動で選ぶ。
+  //  2) 1が使えない古いブラウザでは、MediaPipe FaceMesh（旧版）に自動で切り替え、3次元のEARで判定する。
+  // ============================================================
+  const TV_BASE   = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${LIB_VERSIONS.tasksVision}`;
+  const MODEL_URL = `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/${LIB_VERSIONS.faceLandmarkerModel}/face_landmarker.task`;
+  let engine = null;            // { name: 'landmarker' | 'facemesh', delegate: 'GPU' | 'CPU' | '', obj, startedAt }
+  let fmReady = false, fmError = null, engineGen = 0;
+  let tvModule = null, tvFileset = null;
+  const engineInfo = { name: '', delegate: '', switches: [], gpuMs: null, cpuMs: null, triedCPU: false };
+  let detMsEma = null;          // 1フレームの処理時間（ミリ秒）の平均
+
+  async function loadTasksVision() {
+    if (!tvModule) tvModule = await import(TV_BASE + '/vision_bundle.mjs');
+    if (!tvFileset) tvFileset = await tvModule.FilesetResolver.forVisionTasks(TV_BASE + '/wasm');
   }
-  function getEARs(lm) {
-    const right = ear6(lm, 159, 145, 33, 133, 160, 144);   // 本人の右目
-    const left  = ear6(lm, 386, 374, 362, 263, 387, 373);  // 本人の左目
-    return { r: right, l: left, avg: (right + left) / 2 };
+  async function makeLandmarker(delegate) {
+    await loadTasksVision();
+    return tvModule.FaceLandmarker.createFromOptions(tvFileset, {
+      baseOptions: { modelAssetPath: MODEL_URL, delegate },
+      runningMode: 'VIDEO', numFaces: 1, outputFaceBlendshapes: true,
+      minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5,
+    });
+  }
+  function loadScript(src) {
+    return new Promise((ok, ng) => {
+      const el = document.createElement('script');
+      el.src = src; el.crossOrigin = 'anonymous';
+      el.onload = ok; el.onerror = () => ng(new Error('script load failed'));
+      document.head.appendChild(el);
+    });
+  }
+  async function makeFaceMesh() {
+    if (typeof FaceMesh === 'undefined') await loadScript(`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${LIB_VERSIONS.faceMesh}/face_mesh.js`);
+    const fm = new FaceMesh({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${LIB_VERSIONS.faceMesh}/${f}` });
+    // refineLandmarks は必ず true（false にするとまぶたの動きが取れず、瞬きを検出できなくなる）
+    fm.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: .5, minTrackingConfidence: .5 });
+    fm.onResults(r => onFaceResult({ landmarks: r.multiFaceLandmarks && r.multiFaceLandmarks[0], blend: null }));
+    if (typeof fm.initialize === 'function') await fm.initialize();   // 読み込みが終わるまで send() は呼ばない
+    return fm;
   }
 
-  function createFaceMesh() {
-    faceMesh = new FaceMesh({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${LIB_VERSIONS.faceMesh}/${f}` });
-    // refineLandmarks は必ず true：まぶたの動きの精度に必要（false にすると目を閉じてもEARが下がらず、瞬きを検出できなくなる）
-    faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: .5, minTrackingConfidence: .5 });
-    faceMesh.onResults(onFaceResult);
-    const fm = faceMesh;
-    fmReady = false; fmError = null;
+  // prefer：'GPU' | 'CPU' | 'facemesh' | 省略（自動：GPU → CPU → 旧版 の順に試す）
+  async function createEngine(prefer) {
+    const gen = ++engineGen;
+    fmReady = false; fmError = null; detMsEma = null;
+    resetBaseline(); resetBlinkState();
+    const old = engine; engine = null;
+    try { old && old.obj && old.obj.close(); } catch (e) {}
     setStatus('ok', '顔認識を準備しています…（初回は読み込みに時間がかかります）');
-    // 読み込み（initialize）が終わるまで、send() は呼ばない（同時に走らせると初期化が壊れる）
-    const init = typeof fm.initialize === 'function' ? fm.initialize() : Promise.resolve();
-    init.then(() => { if (faceMesh === fm) { fmReady = true; onFaceMeshReady(); } })
-        .catch(err => { if (faceMesh === fm) { fmError = err; onFaceMeshFailed(err); } });
+    updateMeasureStart();
+    const order = prefer === 'facemesh' ? ['facemesh'] : prefer === 'CPU' ? ['CPU', 'GPU', 'facemesh'] : ['GPU', 'CPU', 'facemesh'];
+    let lastErr = null;
+    for (const kind of order) {
+      try {
+        const obj = kind === 'facemesh' ? await makeFaceMesh() : await makeLandmarker(kind);
+        if (gen !== engineGen) { try { obj.close(); } catch (e) {} return; }
+        engine = { name: kind === 'facemesh' ? 'facemesh' : 'landmarker', delegate: kind === 'facemesh' ? '' : kind, obj, startedAt: performance.now() };
+        engineInfo.name = engine.name; engineInfo.delegate = engine.delegate;
+        fmReady = true;
+        onFaceMeshReady();
+        return;
+      } catch (err) { lastErr = err; console.warn('顔認識の準備に失敗:', kind, err); }
+    }
+    if (gen === engineGen) { fmError = lastErr || new Error('unknown'); onFaceMeshFailed(fmError); }
   }
-  let fmReady = false, fmError = null;
+
+  // GPU が遅い端末（グラフィック性能が低い・ソフトウェア描画など）では CPU に切り替え、速い方を使い続ける。
+  // 計測中は切り替えない（途中で判定の条件が変わらないように）
+  function trackDetTime(ms, e) {
+    detMsEma = detMsEma === null ? ms : detMsEma * 0.9 + ms * 0.1;
+    if (measuring || e !== engine || e.name !== 'landmarker' || e.checked || performance.now() - e.startedAt < 3000) return;
+    e.checked = true;
+    if (e.delegate === 'GPU') {
+      engineInfo.gpuMs = Math.round(detMsEma);
+      if (detMsEma > 40 && !engineInfo.triedCPU) {
+        engineInfo.triedCPU = true;
+        engineInfo.switches.push(`GPU→CPU（GPU ${engineInfo.gpuMs}ms/枚）`);
+        createEngine('CPU');
+      }
+    } else if (e.delegate === 'CPU') {
+      engineInfo.cpuMs = Math.round(detMsEma);
+      if (engineInfo.gpuMs && detMsEma > engineInfo.gpuMs * 1.2) {
+        engineInfo.switches.push(`CPU→GPU（CPU ${engineInfo.cpuMs}ms/枚）`);
+        createEngine('GPU');
+      }
+    }
+  }
+
   function onFaceMeshReady() {
     if (cameraRunning) setStatus('ok', 'カメラ接続中 — 顔を正面に向けてください');
     updateMeasureStart();
@@ -1012,7 +1466,7 @@
     setStatus('warn', msg);
     if (stage === 'test') { $('test-msg').textContent = '顔認識を読み込めませんでした'; $('test-sub').textContent = msg; }
     updateMeasureStart();
-    console.error('FaceMesh初期化の失敗:', err);
+    console.error('顔認識の初期化の失敗:', err);
   }
   // 計測開始ボタン：カメラと顔認識の準備ができるまで押せない
   function updateMeasureStart() {
@@ -1022,7 +1476,7 @@
     $('label-main').textContent = (cameraRunning && !fmReady && !fmError) ? '顔認識を準備中…' : '計測開始';
   }
 
-  // フレーム送信ループ（faceMeshは再代入されることがあるので変数を直接参照する）
+  // フレーム送信ループ（engine は作り直されることがあるので、毎回変数を直接参照する）
   // 軽量化：①カメラの新しいフレームが届いたときだけ処理する（画面の更新が60〜144Hzでも、同じ映像を何度も処理しない）
   //         ②処理回数に上限をかける（既定30回/秒）  ③顔認識が不要な画面（最初・入力・終了）では処理しない
   // requestVideoFrameCallback が使えない環境や、通知が250ms来ないときは、上限の範囲で処理を続ける（検出が止まらないための保険）
@@ -1031,14 +1485,31 @@
   function armFrameCallback() {
     video.requestVideoFrameCallback(() => { frameReady = true; lastRvfcAt = performance.now(); armFrameCallback(); });
   }
+  let lastVideoTs = 0;
   async function frameLoop() {
     const now = performance.now();
     const newFrame = !hasRvfc || frameReady || now - lastRvfcAt > 250;
-    if (faceMesh && fmReady && video.readyState >= 2 && newFrame && (stage === 'test' || stage === 'measure')
+    if (engine && fmReady && video.readyState >= 2 && newFrame && (stage === 'test' || stage === 'measure')
         && now - lastSentAt >= 1000 / cfg.maxFps - 3) {
       lastSentAt = now; frameReady = false;
-      try { await faceMesh.send({ image: video }); sendErrors = 0; }
-      catch (e) { if (++sendErrors === 10) setStatus('warn', '顔認識がうまく動いていません（' + String((e && e.message) || e).slice(0, 50) + '）。ページを開き直してください'); }
+      const e = engine, t0 = performance.now();
+      try {
+        if (e.name === 'landmarker') {
+          const ts = Math.max(now, lastVideoTs + 1); lastVideoTs = ts;   // 時刻は必ず増やす
+          const r = e.obj.detectForVideo(video, ts);
+          trackDetTime(performance.now() - t0, e);
+          onFaceResult({
+            landmarks: r.faceLandmarks && r.faceLandmarks[0],
+            blend: r.faceBlendshapes && r.faceBlendshapes[0] ? r.faceBlendshapes[0].categories : null,
+          });
+        } else {
+          await e.obj.send({ image: video });
+          trackDetTime(performance.now() - t0, e);
+        }
+        sendErrors = 0;
+      } catch (err) {
+        if (++sendErrors === 10) setStatus('warn', '顔認識がうまく動いていません（' + String((err && err.message) || err).slice(0, 50) + '）。ページを開き直してください');
+      }
     }
     frameLoopId = requestAnimationFrame(frameLoop);
   }
@@ -1064,8 +1535,7 @@
       camInfo = { label: track.label || '', width: st.width || null, height: st.height || null, frameRate: st.frameRate || null };
       track.addEventListener('ended', onCameraLost);
 
-      if (typeof FaceMesh === 'undefined') { const er = new Error('facemesh-missing'); er.name = 'FaceMeshMissing'; throw er; }
-      if (!faceMesh) createFaceMesh();
+      if ((!engine && engineGen === 0) || fmError) createEngine();   // 顔認識の準備は、カメラと並行して進める
       if (frameLoopId === null) frameLoopId = requestAnimationFrame(frameLoop);
 
       cameraRunning = true;
@@ -1082,7 +1552,7 @@
 
   // ── 目の開き具合のバー（メニュー）─────────────────────────────
   // 直近10秒のEARを覚えておき、「閉じた時」＝最小値、「開いた時」＝中央値（瞬きは一瞬なので中央値は開いている値になる）
-  const EAR_MIN = 0.05, EAR_MAX = 0.60;     // しきい値スライダーと同じ目盛り
+  const EAR_MIN = 0, EAR_MAX = 1;           // しきい値スライダーと同じ目盛り（普段の開き具合=1.0）
   const earBuf = [];                        // [時刻, EAR]
   let lastMeterAt = 0;
   function pushEarSample(t, v) {
@@ -1093,14 +1563,14 @@
     if (earBuf.length < 10) return null;
     const vals = earBuf.map(x => x[1]).sort((a, b) => a - b);
     const open = vals[Math.floor(vals.length * 0.5)], closed = vals[0];
-    return { open, closed, blinked: open - closed >= 0.04 };   // 差が小さい＝この10秒に瞬きが無い
+    return { open, closed, blinked: open - closed >= 0.15 };   // 差が小さい＝この10秒に瞬きが無い
   }
   const pct = v => (Math.min(Math.max((v - EAR_MIN) / (EAR_MAX - EAR_MIN), 0), 1) * 100) + '%';
   function updateEyeMeter(t) {
     if (t - lastMeterAt < 50) return;       // 1秒に20回まで
     lastMeterAt = t;
     const v = liveEar;
-    $('ear-live-val').textContent = v === null ? '—' : v.toFixed(3);
+    $('ear-live-val').textContent = v === null ? '—' : v.toFixed(2);
     $('ear-bar').style.width = v === null ? '0' : pct(v);
     $('ear-bar').classList.toggle('closed', v !== null && v < cfg.earThreshold);
     $('mark-thr').style.left = pct(cfg.earThreshold);
@@ -1189,8 +1659,7 @@
     if (!cameraRunning) { toast('先にカメラを起動してください'); return; }
     resetBlinkState();
     try {
-      if (faceMesh) { faceMesh.close(); faceMesh = null; }
-      createFaceMesh();
+      createEngine(engine ? (engine.name === 'facemesh' ? 'facemesh' : engine.delegate) : undefined);
       if (measuring) events.push({ atSec: rel(performance.now()), type: 'eye_reset' });
       toast('目の位置を再検出しました');
     } catch (err) {
@@ -1251,16 +1720,87 @@
     offCenter: '顔が画面の端にあります。中央に寄ってください',
     camHigh:   'カメラが高すぎます。目の高さまで下げて、顔と平行にしてください',
     camLow:    'カメラが低すぎます。目の高さまで上げて、顔と平行にしてください',
+    camSide:   'カメラが横に寄りすぎています。顔がもう少し正面から写る位置に置いてください',
+    lookingDown: '下を向いています（その間は瞬きを数えません）',
   };
   let pitchEma = null;   // カメラの上下の傾き（度）。急な変化をならした値
   function guideState(fw, cx, cy) {
     if (brightness !== null && brightness < GUIDE.dark) return 'dark';
     if (fw < GUIDE.farFace) return 'tooFar';
     if (fw > GUIDE.nearFace) return 'tooClose';
-    if (pitchEma !== null && pitchEma > GUIDE.pitchHigh) return 'camHigh';
-    if (pitchEma !== null && pitchEma < GUIDE.pitchLow) return 'camLow';
+    const G = engine && engine.name === 'landmarker' ? GUIDE_LM : GUIDE;
+    // カメラの置き場所は、その瞬間ではなく「普段の頭の向き」（直近60秒の中央値）で判断する（一時的に下を向いただけで警告しない）
+    const typicalPitch = pitchRef !== null ? pitchRef : pitchEma;
+    if (typicalPitch !== null && typicalPitch > G.pitchHigh) return 'camHigh';
+    if (typicalPitch !== null && typicalPitch < G.pitchLow) return 'camLow';
+    if (yawEma !== null && Math.abs(yawEma) > G.yawMax) return 'camSide';
     if (Math.abs(cx - .5) > GUIDE.edgeX || cy < GUIDE.edgeYlo || cy > GUIDE.edgeYhi) return 'offCenter';
     return null;
+  }
+
+  // ── 目の開き具合の計算 ─────────────────────────────────────
+  const EYE = { R: [159, 145, 33, 133, 160, 144], L: [386, 374, 362, 263, 387, 373] };   // 本人の右目 / 左目
+  const p3 = (lm, i, w, h) => [lm[i].x * w, lm[i].y * h, (lm[i].z || 0) * w];
+  const d3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const d2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  function eyeMetrics(lm, idx, w, h) {
+    const [t, b, l, r, t2, b2] = idx.map(i => p3(lm, i, w, h));
+    return {
+      ear: (d3(t, b) + d3(t2, b2)) / (2 * Math.max(d3(l, r), 1e-6)),   // 3次元のEAR（顔の向きで歪みにくい）
+      width: d2(l, r),                                                // 画面に写った目の幅（よく写っている目ほど大きい）
+    };
+  }
+  // 普段の開き具合（基準）：直近10秒の値の中央値（瞬きは時間の1〜2割なので、中央値は開いている値になる）。
+  // 座り直しやカメラの角度の変化に、約5秒で基準がついていく
+  const baseBuf = []; let baseOpen = null, baseAt = 0;
+  function resetBaseline() { baseBuf.length = 0; baseOpen = null; baseAt = 0; }
+  function updateBaseline(t, raw) {
+    baseBuf.push([t, raw]);
+    while (baseBuf.length && t - baseBuf[0][0] > 10000) baseBuf.shift();
+    if (baseBuf.length < 15) { baseOpen = Math.max(baseOpen || 0, raw); return; }   // 最初は、閉じた瞬間を基準にしないよう最大値
+    if (t - baseAt < 500) return;
+    baseAt = t;
+    const v = baseBuf.map(x => x[1]).sort((a, b) => a - b);
+    // データが少ない間（約3秒未満）は、開いた側（上位25%）を基準にして、閉じた値を基準にしてしまうのを防ぐ
+    baseOpen = v[Math.floor(v.length * (baseBuf.length < 90 ? 0.75 : 0.5))];
+  }
+  let yawEma = null, lastTestValAt = 0;
+  // 下向きの判定：
+  //  ・頭の向き：その人の直近60秒の普段の頭の向きより、25度以上下を向いた
+  //  ・視線：AIの「下を見ている」スコアが高い（瞬きの瞬間もこのスコアは上がるので、目がはっきり開いている時の値だけで判断する）
+  // どちらかが0.7秒続いたら判定を止め、0.5秒戻ったら再開する
+  const DOWN = { pitchDev: 25, lookDown: 0.6, lookDownOff: 0.45, enterMs: 700, exitMs: 500 };
+  let lookDownEma = null, pitchRef = null, pitchRefAt = 0, downSince = null, upSince = null, judgePaused = false;
+  const pitchBuf = [];
+  var notJudgedIntervals = [], judgePausedSince = null, slotOpen = [];
+  function updateLookDown(t, e, lookDown) {
+    if (lookDown !== null && e.avg > cfg.earThreshold + 0.1) lookDownEma = lookDownEma === null ? lookDown : lookDownEma * 0.85 + lookDown * 0.15;
+    if (!judgePaused) {
+      pitchBuf.push([t, pitchEma]);
+      while (pitchBuf.length && t - pitchBuf[0][0] > 60000) pitchBuf.shift();
+      if (t - pitchRefAt > 1000 && pitchBuf.length > 30) { pitchRefAt = t; const v = pitchBuf.map(x => x[1]).sort((a, b) => a - b); pitchRef = v[Math.floor(v.length / 2)]; }
+    }
+    const dev = pitchRef === null ? 0 : pitchEma - pitchRef;   // ＋＝普段より下を向いている
+    const down = dev > DOWN.pitchDev || (lookDownEma !== null && lookDownEma > DOWN.lookDown);
+    const up = dev < DOWN.pitchDev - 10 && (lookDownEma === null || lookDownEma < DOWN.lookDownOff);
+    if (!judgePaused) {
+      downSince = down ? (downSince === null ? t : downSince) : null;
+      if (downSince !== null && t - downSince >= DOWN.enterMs) setJudgePaused(true, t);
+    } else {
+      upSince = up ? (upSince === null ? t : upSince) : null;
+      if (upSince !== null && t - upSince >= DOWN.exitMs) setJudgePaused(false, t);
+    }
+  }
+  function setJudgePaused(on, t) {
+    judgePaused = on; downSince = null; upSince = null;
+    resetBlinkState();
+    if (!measuring) return;
+    if (on) judgePausedSince = Math.max(t, measStartPerf);
+    else if (judgePausedSince !== null) {
+      const startSec = rel(judgePausedSince), endSec = rel(t);
+      notJudgedIntervals.push({ startSec, endSec, durationSec: r3(endSec - startSec) });
+      judgePausedSince = null;
+    }
   }
 
   function onFaceResult(results) {
@@ -1281,9 +1821,10 @@
     if (canvasDirty) { ctx.clearRect(0, 0, w, h); canvasDirty = false; }
     if (Math.abs(w / h - camAspect) > 0.01) { camAspect = w / h; fitCamera(); }
 
-    if (!results.multiFaceLandmarks?.length) {
+    if (!results.landmarks) {
       trackFace(false, t);
       resetBlinkState();                                   // 顔が消えた間に目が閉じた扱いのままにしない
+      if (judgePaused) setJudgePaused(false, t);           // 顔が写っていない時間は「未検出」として数える
       liveEar = null; liveFaceW = null;
       setStatus('warn', '顔が検出されていません');
       if (menuPanel.classList.contains('open')) { $('ear-live-val').textContent = '顔が見えません'; $('ear-bar').style.width = '0'; }
@@ -1291,8 +1832,23 @@
     }
     trackFace(true, t);
 
-    const lm = results.multiFaceLandmarks[0];
-    const e  = getEARs(lm);
+    const lm = results.landmarks;
+    const mR = eyeMetrics(lm, EYE.R, w, h), mL = eyeMetrics(lm, EYE.L, w, h);
+    // 目ごとの開き具合：新しい顔認識はAIの瞬きスコア（0=開く〜1=閉じる）、旧版は3次元のEAR
+    let oR, oL, blinkScore = null, lookDownNow = null;
+    const wR = mR.width * mR.width, wL = mL.width * mL.width, wSum = Math.max(wR + wL, 1e-6);
+    if (results.blend) {
+      const sc = k => { const c = results.blend.find(x => x.categoryName === k); return c ? c.score : 0; };
+      const bR = sc('eyeBlinkRight'), bL = sc('eyeBlinkLeft');   // eyeBlinkLeft＝本人の左目（確認済み）
+      oR = 1 - bR; oL = 1 - bL;
+      blinkScore = (wR * bR + wL * bL) / wSum;
+      lookDownNow = (wR * sc('eyeLookDownRight') + wL * sc('eyeLookDownLeft')) / wSum;
+    } else { oR = mR.ear; oL = mL.ear; }
+    // カメラが横にあるときは、遠い側の目が斜めに潰れて写るので、よく写っている目を重く見る
+    const raw = (wR * oR + wL * oL) / wSum;
+    if (!judgePaused) updateBaseline(t, raw);   // 下を向いている間の値は、普段の開き具合に混ぜない
+    const base = Math.max(baseOpen || raw, 0.05);
+    const e = { avg: Math.min(raw / base, 1.5), r: Math.min(oR / base, 1.5), l: Math.min(oL / base, 1.5), earR: mR.ear, earL: mL.ear, blink: blinkScore };
     liveEar = e.avg;
 
     // 顔の大きさ・位置（遠さ・近さ・端寄りの目安）
@@ -1302,10 +1858,15 @@
     // カメラの上下の傾き：額→顎のベクトルの「奥行き÷縦」の角度（標準顔の約0.7°を引いて正面を0°にそろえる）
     const pitch = Math.atan2(((lm[152].z || 0) - (lm[10].z || 0)) * w, (lm[152].y - lm[10].y) * h) * 180 / Math.PI - 0.7;
     pitchEma = pitchEma === null ? pitch : pitchEma * 0.9 + pitch * 0.1;
-    const g = guideState(fw, cx, cy);
+    // カメラの左右の角度：両ほおの「奥行きの差÷横の差」
+    const yaw = Math.atan2(((lm[454].z || 0) - (lm[234].z || 0)) * w, (lm[454].x - lm[234].x) * w) * 180 / Math.PI;
+    yawEma = yawEma === null ? yaw : yawEma * 0.9 + yaw * 0.1;
+    updateLookDown(t, e, lookDownNow);
+    const g = judgePaused ? 'lookingDown' : guideState(fw, cx, cy);
 
     if (measuring) {
-      quality.earRSum += e.r; quality.earLSum += e.l; quality.earN++;
+      quality.earRSum += e.earR; quality.earLSum += e.earL; quality.earN++;
+      quality.yawSum += Math.abs(yawEma); quality.yawN++; quality.yawMax = Math.max(quality.yawMax, Math.abs(yawEma));
       quality.fwSum += fw; quality.fwN++; quality.fwMin = Math.min(quality.fwMin, fw); quality.fwMax = Math.max(quality.fwMax, fw);
       if (g) quality.warn[g] += dt;
       quality.pitchSum += pitchEma; quality.pitchN++;
@@ -1331,6 +1892,15 @@
       canvasDirty = true;
     }
 
+    if (measuring && !judgePaused) {
+      const i = Math.floor((t - measStartPerf) / 15000);
+      if (i >= 0) { const v = slotOpen[i] || (slotOpen[i] = { sum: 0, n: 0 }); v.sum += raw; v.n++; }
+    }
+    if (judgePaused) return;                               // 下を向いている間は、瞬きを判定しない
+    if (stage === 'test') {
+      if (testState === 'running') calFeed(t, e.avg);
+      if (t - lastTestValAt > 100) { lastTestValAt = t; $('test-thr-val').textContent = e.avg.toFixed(2); }
+    }
     processEar(t, e);
   }
 
@@ -1363,30 +1933,35 @@
     if (!eyeClosed) {
       if (e.avg < cfg.earThreshold) {
         eyeClosed = true; closeStartT = t;
-        ep = { min: e.avg, minR: e.r, minL: e.l };
+        ep = { min: e.avg, minR: e.r, minL: e.l, earR: e.earR, earL: e.earL, maxBlink: e.blink };
       } else {
         openEma = openEma === null ? e.avg : openEma * 0.98 + e.avg * 0.02;
       }
       return;
     }
     // 閉じている間：最小値を更新
-    if (e.avg < ep.min) { ep.min = e.avg; ep.minR = e.r; ep.minL = e.l; }
+    if (e.avg < ep.min) { ep.min = e.avg; ep.minR = e.r; ep.minL = e.l; ep.earR = e.earR; ep.earL = e.earL; }
+    if (e.blink !== null && (ep.maxBlink === null || e.blink > ep.maxBlink)) ep.maxBlink = e.blink;
     // 開いた判定は、しきい値より少し高い値まで戻ったとき（細かい揺れで2回に数えないため）。
     // ただし、開眼時のEARとの差が小さい人でも「閉じたまま」にならないよう、その差の半分までに抑える
     const gapOpen = openEma !== null ? Math.max(0, openEma - cfg.earThreshold) : DET.hysteresis * 2;
     if (e.avg > cfg.earThreshold + Math.min(DET.hysteresis, gapOpen * 0.5)) {
       const durMs = t - closeStartT;
       eyeClosed = false;
-      if (durMs >= cfg.minClosedMs && (closeStartT - lastBlinkEndT) >= DET.minIntervalMs) {
+      if (durMs > DET.maxClosedMs) {
+        // 1秒を超える「閉じ」は瞬きではない（目を休めた・下を向いた・座り直して開き具合が変わった、など）
+        if (measuring && closeStartT >= measStartPerf && events.length < 500)
+          events.push({ atSec: rel(closeStartT), type: 'long_closure', durationSec: r3(durMs / 1000) });
+      } else if (durMs >= cfg.minClosedMs && (closeStartT - lastBlinkEndT) >= DET.minIntervalMs) {
         lastBlinkEndT = t;
-        onBlink({ startT: closeStartT, endT: t, durMs, minEar: ep.min, minR: ep.minR, minL: ep.minL });
+        onBlink({ startT: closeStartT, endT: t, durMs, minOpen: ep.min, minR: ep.minR, minL: ep.minL, earR: ep.earR, earL: ep.earL, maxBlink: ep.maxBlink });
       }
       ep = null;
     }
   }
 
   function onBlink(b) {
-    if (stage === 'test') { if (testState === 'running') testCount++; return; }
+    if (stage === 'test') return;   // しきい値の自動設定中は、通常の判定では数えない
     if (stage === 'measure' && !measuring) { blinkFeedback(); return; }   // 計測開始前：しきい値の確認用に音と光で知らせる
     if (stage === 'measure' && measuring) {
       if (b.startT < measStartPerf) return;
@@ -1395,9 +1970,11 @@
         startSec: rel(b.startT),               // 目を閉じ始めた時刻（計測開始から何秒後か）
         endSec: rel(b.endT),                   // 目が開いた時刻
         durationMs: Math.round(b.durMs),       // 閉じていた時間
-        minEar: r3(b.minEar), minEarRight: r3(b.minR), minEarLeft: r3(b.minL),
+        minOpenness: r3(b.minOpen), minOpennessRight: r3(b.minR), minOpennessLeft: r3(b.minL),   // 最も閉じた時の開き具合（普段=1.0）
+        minEar: r3((b.earR + b.earL) / 2), minEarRight: r3(b.earR), minEarLeft: r3(b.earL),      // その時の3次元EAR（参考）
+        blinkScore: b.maxBlink === null ? null : r3(b.maxBlink),                                 // AIの瞬きスコアの最大（旧版はなし）
         activity: activityLog.length - 1,      // activityLog の何番目の活動中か
-        state: evLog.break.open ? 'break' : (evLog.away.open ? 'away' : ''),
+        state: evLog.break.open ? 'break' : '',
       });
       updateAdminReadout();
     }
@@ -1406,11 +1983,11 @@
   // ============================================================
   //  しきい値テスト
   // ============================================================
-  let testThr = TEST.start, testState = 'idle', testCount = 0, testTimers = [];
-  let testLo = 0, testHi = Infinity, testOverStreak = 0;
-  let testMode = 'full', testStart = TEST.start, testStep = TEST.step;
+  let testState = 'idle', testTimers = [], testMode = 'first';
   let testTrials = [], testInfo = null;
-  let thresholdSource = null;   // 'test' | 'confirm_test' | 'manual'
+  let thresholdSource = null;   // 'auto' | 'manual'
+  // 試行中の記録：瞬き（目の開き具合のくぼみ）ごとの最小値と、開いている間の値
+  let cal = null;
 
   function clearTestTimers() { testTimers.forEach(t => { clearTimeout(t); clearInterval(t); }); testTimers = []; }
   function showTestView(v) {
@@ -1419,35 +1996,36 @@
     $('test-done').style.display = v === 'done' ? 'block' : 'none';
   }
 
-  function enterTest(startThr = TEST.start, mode = 'full') {
+  // mode：'first'（初めての人）/ 'recheck'（入力画面の「測り直す」）
+  function enterTest(mode = 'first') {
     setStage('test');
     clearTestTimers();
     testState = 'idle';
     testMode = mode;
-    testStart = Math.min(TEST.max, Math.max(0.05, r2(startThr)));
-    testStep = mode === 'confirm' ? TEST.confirmStep : TEST.step;
+    testTrials = [];
     showTestView('run');
-    $('test-thr-val').textContent = testStart.toFixed(2);
+    $('test-thr-val').textContent = '—';
     $('test-msg').textContent = 'カメラを起動しています…';
     $('test-sub').textContent = '';
     $('btn-test-judge').disabled = true;
     if (cameraRunning) onCameraReady(); else startCamera();
   }
-  function abortTest() { clearTestTimers(); testState = 'idle'; }
+  function abortTest() { clearTestTimers(); testState = 'idle'; cal = null; }
 
   function startTestFlow() {
-    testThr = testStart;
-    testLo = 0; testHi = Infinity; testOverStreak = 0; testTrials = [];
     showTestView('run');
     runTrial();
   }
 
+  function calProgress() {
+    $('test-sub').textContent = `検出: ${cal.dips.length} / ${TEST.target}回（${TEST.target}回で自動的に決まります。Space キーでも決定できます）`;
+  }
+
   function runTrial() {
     clearTestTimers();
-    setThreshold(testThr);
-    $('test-thr-val').textContent = testThr.toFixed(2);
     testState = 'countdown';
-    testCount = 0; resetBlinkState(); openEma = null;
+    cal = null;
+    resetBaseline();   // 「普段の開き具合」も測り直す（カウントダウンの間に、開いた目で基準が決まる）
     $('btn-test-judge').disabled = true;
     let n = TEST.countdownSec;
     const tick = () => {
@@ -1458,84 +2036,89 @@
         testTimers.push(setTimeout(tick, 1000));
       } else {
         testState = 'running';
-        testCount = 0; resetBlinkState();
+        cal = { dips: [], open: [], down: false, downAt: 0, min: 1, startedAt: performance.now() };
         $('test-msg').textContent = `${TEST.target}回 瞬きしてください`;
-        $('test-sub').textContent = `瞬きし終わったら「判定する」ボタンか Space キーを押してください（${TEST.autoJudgeSec}秒で自動判定）`;
+        calProgress();
         $('btn-test-judge').disabled = false;
-        testTimers.push(setTimeout(judgeTrial, TEST.autoJudgeSec * 1000));
+        testTimers.push(setTimeout(judgeTrial, TEST.timeoutSec * 1000));
       }
     };
     tick();
   }
 
+  // 試行中のフレームごとの処理：しきい値を使わずに、目の開き具合の「くぼみ」を瞬きとして拾う
+  function calFeed(t, v) {
+    if (!cal) return;
+    if (!cal.down) {
+      if (v < TEST.dipDown) { cal.down = true; cal.downAt = t; cal.min = v; }
+      else cal.open.push(v);
+      return;
+    }
+    cal.min = Math.min(cal.min, v);
+    if (v > TEST.dipUp) {
+      cal.down = false;
+      const dur = t - cal.downAt;
+      if (dur >= 30 && dur <= DET.maxClosedMs) {
+        cal.dips.push({ min: cal.min, durationMs: Math.round(dur) });
+        calSound.tick();
+        calProgress();
+        if (cal.dips.length >= TEST.target) testTimers.push(setTimeout(judgeTrial, 400));   // 5回そろったら自動で決める
+      }
+    }
+  }
+
+  const median = a => { const v = a.slice().sort((x, y) => x - y); return v.length ? v[Math.floor(v.length / 2)] : null; };
+
   function judgeTrial() {
-    if (testState !== 'running') return;
+    if (testState !== 'running' || !cal) return;
     clearTestTimers();
     testState = 'judging';
     $('btn-test-judge').disabled = true;
-
-    const c = testCount;
-    const trial = { trial: testTrials.length + 1, threshold: testThr, detected: c, outcome: '' };
+    const dips = cal.dips.slice(-TEST.target);              // 6回以上あれば最後の5回を使う
+    // 試行中に実際に測った「開いた時」を 1.0 として計算する（それまでの基準が古くても、結果がずれない）
+    const openRaw = median(cal.open) || 1;                  // 開いた時：開いている間の値の中央値
+    const closedRaw = median(dips.map(d => d.min));         // 閉じた時：くぼみの最小値の中央値
+    const open = 1, closed = closedRaw === null ? null : closedRaw / openRaw;
+    const trial = { trial: testTrials.length + 1, dips: dips.length, closedOpenness: closed === null ? null : r3(closed),
+                    openOpenness: 1, threshold: null, outcome: '' };
     testTrials.push(trial);
-    if (c === TEST.target) { trial.outcome = 'success'; finishTest(); return; }
-
-    let next = testThr, detail;
-    if (c < TEST.target) {
-      trial.outcome = 'under';                              // 5回未満：しきい値が低すぎる
-      testOverStreak = 0;
-      testLo = Math.max(testLo, testThr);
-      if (testLo >= testHi) testHi = Infinity;               // 食い違った古い記録は捨てる
-      if (isFinite(testHi)) {
-        const mid = r2((testLo + testHi) / 2);               // 「高すぎた値」との間を少しずつ探す
-        if (mid > testLo && mid < testHi) {
-          next = mid;
-          detail = `${TEST.target}回未満でした。しきい値を ${next.toFixed(2)} に少し上げてもう一度テストします`;
-        } else {
-          detail = `${TEST.target}回未満でした。同じしきい値 ${testThr.toFixed(2)} でもう一度テストします`;
-        }
-      } else if (testThr >= TEST.max) {
-        detail = `しきい値が上限（${TEST.max.toFixed(2)}）のため、同じ値でもう一度テストします。顔の向きや明るさを確認してください`;
-      } else {
-        next = Math.min(TEST.max, r2(testThr + testStep));
-        detail = `${TEST.target}回未満でした。しきい値を ${next.toFixed(2)} に上げてもう一度テストします`;
-      }
-    } else {
-      trial.outcome = 'over';                               // 6回以上：1回目は同じ値でやり直し、2回続いたら下げる
-      testOverStreak++;
-      if (testOverStreak < 2) {
-        detail = `${TEST.target + 1}回以上検出しました。同じしきい値 ${testThr.toFixed(2)} でもう一度テストします`;
-      } else {
-        testOverStreak = 0;
-        testHi = Math.min(testHi, testThr);
-        if (testLo >= testHi) testLo = 0;
-        if (testLo > 0) {
-          const mid = r2((testLo + testHi) / 2);
-          next = (mid > testLo && mid < testHi) ? mid : testThr;
-        } else {
-          next = Math.max(0.05, r2(testThr - 0.02));
-        }
-        detail = next < testThr
-          ? `${TEST.target + 1}回以上が続いたため、しきい値が高すぎるようです。${next.toFixed(2)} に下げてもう一度テストします`
-          : `${TEST.target + 1}回以上が続きました。同じしきい値 ${testThr.toFixed(2)} でもう一度テストします`;
-      }
+    let retry = '';
+    if (dips.length < TEST.minDips) {
+      retry = `瞬きを${dips.length}回しか検出できませんでした。顔がカメラに写っているか確認して、もう一度お願いします`;
+    } else if (open - closed < TEST.minSeparation) {
+      retry = '目を閉じた時と開いた時の差が小さく、うまく測れませんでした。カメラの位置や部屋の明るさを確認して、もう一度お願いします';
     }
-    $('test-msg').textContent = `検出 ${c}回`;
-    $('test-sub').textContent = detail;
-    testTimers.push(setTimeout(() => { testThr = next; runTrial(); }, TEST.pauseMs));
+    if (retry) {
+      trial.outcome = 'retry';
+      calSound.retry();
+      $('test-msg').textContent = 'もう一度お願いします';
+      $('test-sub').textContent = retry;
+      testTimers.push(setTimeout(runTrial, TEST.pauseMs + 1500));
+      return;
+    }
+    // 閉じた時と開いた時のちょうど中間をしきい値にする（極端な値にならないよう 0.25〜0.80 に収める）
+    const thr = Math.min(TEST.thrMax, Math.max(TEST.thrMin, Math.round(((closed + open) / 2) * 100) / 100));
+    trial.threshold = thr; trial.outcome = 'success';
+    calSound.done();
+    finishTest(thr, closed, open);
   }
 
-  function finishTest() {
+  function finishTest(thr, closed, open) {
     testState = 'done';
-    thresholdSource = testMode === 'confirm' ? 'confirm_test' : 'test';
-    testInfo = { mode: testMode, startThreshold: testStart, finalThreshold: testThr, trials: testTrials.slice() };
-    $('test-result-thr').textContent = testThr.toFixed(2);
+    cal = null;
+    thresholdSource = 'auto';
+    testInfo = { method: 'auto_5blinks', mode: testMode, closedOpenness: r3(closed), openOpenness: r3(open),
+                 finalThreshold: thr, trials: testTrials.slice() };
+    setThreshold(thr);
+    $('test-result-thr').textContent = thr.toFixed(2);
+    $('test-result-detail').textContent = `閉じた時 ${closed.toFixed(2)} ／ 開いた時 ${open.toFixed(2)} の中間に設定しました`;
     showTestView('done');
   }
 
   // ============================================================
   //  しきい値の入力（2回目以降）／この端末への記録
   // ============================================================
-  const THR_MIN = 0.05, THR_MAX = 0.60;
+  const THR_MIN = 0.05, THR_MAX = 0.95;
 
   function loadSavedThreshold() {
     const id = $('p-id').value.trim();
@@ -1554,7 +2137,7 @@
   function openInput() {
     testInfo = null;
     const s = loadSavedThreshold();
-    const v = s ? s.value : 0.20;
+    const v = s ? s.value : 0.50;   // 保存された値がなければ標準（0.50）
     $('thr-number').value = v.toFixed(2);
     $('thr-range').value = v;
     $('thr-hint').textContent = s ? `${s.label}：${v.toFixed(2)}（違う場合は書き換えてください）` : '';
@@ -1579,11 +2162,11 @@
   // ============================================================
   let activity = { category: '', genre: '', gameName: '', detail: '' };
   let actDraft = null;
-  $('act-genre').innerHTML = GENRES.map(g => `<option>${g}</option>`).join('');
+  $('act-genre').innerHTML = GENRES.map(g => `<option value="${g}">${g}</option>`).join('');
 
   // 前回の活動・眼鏡コンタクトの使用は、この端末のブラウザに保存され、ブラウザを閉じても引き継がれる
   const ACT_KEY = 'blink_last_activity_v1';
-  let eyewear = '', carriedOver = false;
+  let eyewear = '', carriedOver = false, savedPid = '';
   (function loadSavedActivity() {
     const sv = store.get(ACT_KEY, null);
     if (sv && ((sv.activity && sv.activity.category) || sv.eyewear)) {
@@ -1591,6 +2174,7 @@
         activity = { category: sv.activity.category, genre: sv.activity.genre || '', gameName: sv.activity.gameName || '', detail: sv.activity.detail || '' };
       }
       eyewear = sv.eyewear || ''; carriedOver = true;
+      if (sv.pid) savedPid = sv.pid;
     }
   })();
 
@@ -1618,6 +2202,9 @@
       ? (carriedOver ? '活動などに変更はありますか？' : 'これから何をする予定ですか？')
       : 'いま何をしていますか？';
     $('act-eyewear').value = eyewear;
+    // ID の欄は、計測画面に入ったときの自動表示でだけ出す（前回の値を入れておく）
+    $('act-id-box').style.display = auto ? 'block' : 'none';
+    if (auto) $('act-pid').value = $('p-id').value.trim() || savedPid;
     actDraft = { ...activity };
     if (!actDraft.genre) actDraft.genre = GENRES[0];
     $('act-genre').value = actDraft.genre;
@@ -1634,7 +2221,8 @@
     activity = a;
     const prevEye = eyewear;
     eyewear = $('act-eyewear').value;
-    store.set(ACT_KEY, { activity: a, eyewear, at: new Date().toISOString() });   // 次回の起動時に引き継ぐ
+    if ($('act-id-box').style.display !== 'none') { $('p-id').value = $('act-pid').value.trim(); savedPid = $('p-id').value; }
+    store.set(ACT_KEY, { activity: a, eyewear, pid: savedPid, at: new Date().toISOString() });   // 次回の起動時に引き継ぐ
     carriedOver = true;
     if (measuring && prevEye !== eyewear) events.push({ atSec: rel(performance.now()), type: 'eyewear_change', detail: eyewear || '未回答' });
     updateActivityBtn();
@@ -1657,10 +2245,9 @@
   let plannedSec = null, quality = newQuality(), lastOp = null;
   // 同意文はメニュー下部に掲載（同意ボタンなし・計測者の操作は不要）。どの版を掲載していたかだけ記録する
   const consentInfo = { type: 'notice_in_menu', version: CONSENT_VERSION };
-  const evLog = { break: { list: [], open: null }, away: { list: [], open: null } };
+  const evLog = { break: { list: [], open: null } };
   const EV_UI = {
     break: { btn: 'meas-btn-break', label: 'label-break', name: '休憩', on: '休憩終了', off: '休憩開始' },
-    away:  { btn: 'meas-btn-away',  label: 'label-away',  name: '離席', on: '離席終了', off: '離席開始' },
   };
 
   // performance.now()の時刻 → 「計測開始から何秒後か」（小数第3位＝ミリ秒）
@@ -1673,7 +2260,8 @@
              earRSum: 0, earLSum: 0, earN: 0, fwSum: 0, fwMin: Infinity, fwMax: 0, fwN: 0,
              brSum: 0, brN: 0, brMin: Infinity, brMax: 0,
              pitchSum: 0, pitchN: 0, pitchMin: Infinity, pitchMax: -Infinity,
-             warn: { tooFar: 0, tooClose: 0, offCenter: 0, dark: 0, camHigh: 0, camLow: 0 } };
+             yawSum: 0, yawN: 0, yawMax: 0,
+             warn: { tooFar: 0, tooClose: 0, offCenter: 0, dark: 0, camHigh: 0, camLow: 0, camSide: 0, lookingDown: 0 } };
   }
 
   // 顔（目）を検出できていなかった区間の記録
@@ -1713,6 +2301,18 @@
       f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
     }
   }
+  function playTone(freq, startIn, dur, vol = 0.18) {
+    if (!audioCtx || audioCtx.state === 'closed' || !$('opt-blink-sound').checked) return;
+    const t0 = audioCtx.currentTime + startIn, o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    o.connect(g); g.connect(audioCtx.destination); o.start(t0); o.stop(t0 + dur + 0.01);
+  }
+  const calSound = {
+    tick: () => playTone(1200, 0, 0.12),                                        // 瞬きを1回拾った
+    done: () => { playTone(880, 0, 0.18); playTone(1320, 0.2, 0.35); },         // 5回そろって決まった
+    retry: () => { playTone(330, 0, 0.25); playTone(260, 0.28, 0.35); },        // やり直し
+  };
   function blinkBeep() {
     if (!audioCtx || audioCtx.state === 'closed') return;
     const t = audioCtx.currentTime, o = audioCtx.createOscillator(), g = audioCtx.createGain();
@@ -1735,7 +2335,7 @@
   function updateAdminReadout() {
     if (!ADMIN) return;
     $('admin-readout').textContent =
-      `瞬き ${blinks.length} ／ EAR ${liveEar === null ? '—' : liveEar.toFixed(3)} ／ ${Math.round(liveFps)}fps ／ 顔幅 ${liveFaceW === null ? '—' : Math.round(liveFaceW * 100) + '%'}`;
+      `瞬き ${blinks.length} ／ 開き具合 ${liveEar === null ? '—' : liveEar.toFixed(2)} ／ ${Math.round(liveFps)}fps ／ 顔幅 ${liveFaceW === null ? '—' : Math.round(liveFaceW * 100) + '%'} ／ ${engineInfo.name === 'landmarker' ? 'AI-' + engineInfo.delegate : (engineInfo.name ? '旧版' : '—')}`;
   }
 
   function makeSessionId(ms) {
@@ -1752,7 +2352,8 @@
     blinks = []; undetectedIntervals = []; lostSincePerf = null;
     events = []; thresholdChanges = []; lastLoggedThr = cfg.earThreshold;
     quality = newQuality(); lastOp = null;
-    evLog.break = { list: [], open: null }; evLog.away = { list: [], open: null };
+    evLog.break = { list: [], open: null };
+    notJudgedIntervals = []; judgePausedSince = null; slotOpen = [];
     activityLog = [{ atSec: 0, ...activity, label: activityLabel(activity) }];
     resetBlinkState(); lastBlinkEndT = -1e9; openEma = null;
     lastFrameAt = measStartPerf; prevFrameT = 0;
@@ -1762,7 +2363,6 @@
     $('meas-btn-main').classList.add('measuring');
     $('label-main').textContent = '計測終了';
     $('meas-btn-break').disabled = false;
-    $('meas-btn-away').disabled  = false;
     $('btn-back-start').disabled = true;
     $('cam-select').disabled = true;
     $('check-tip').style.display = 'none';
@@ -1784,8 +2384,7 @@
     $('label-main').textContent = '計測開始';
     $('timer-main').textContent = '00:00';
     $('meas-btn-break').disabled = true;
-    $('meas-btn-away').disabled  = true;
-    ['break', 'away'].forEach(k => { $(EV_UI[k].btn).classList.remove('measuring'); $(EV_UI[k].label).textContent = EV_UI[k].off; });
+    ['break'].forEach(k => { $(EV_UI[k].btn).classList.remove('measuring'); $(EV_UI[k].label).textContent = EV_UI[k].off; });
     $('btn-back-start').disabled = false;
     $('cam-select').disabled = false;
     $('check-tip').style.display = '';
@@ -1793,7 +2392,7 @@
     $('modal-confirm').classList.remove('show');
   }
 
-  // 休憩・離席：1回目で開始、2回目で終了を記録（効果はJSONへの記録のみ）
+  // 休憩：1回目で開始、2回目で終了を記録（効果はJSONへの記録のみ）。離席は顔が写らない区間から自動で記録する
   function toggleEvent(kind) {
     if (!measuring) return;
     const log = evLog[kind], ui = EV_UI[kind], t = performance.now();
@@ -1841,14 +2440,28 @@
     const durSec = rel(endPerf);
     const closedCopy = o => { const r = { ...o, endedAt: isoAt(endPerf), endSec: durSec, closedByMeasurementEnd: true }; r.durationSec = r3(r.endSec - r.startSec); return r; };
     const breaks = evLog.break.list.concat(evLog.break.open ? [closedCopy(evLog.break.open)] : []);
-    const aways  = evLog.away.list.concat(evLog.away.open ? [closedCopy(evLog.away.open)] : []);
     const undet  = undetectedIntervals.slice();
     if (lostSincePerf !== null && endPerf - lostSincePerf >= LOST_MIN_MS) {
       const s = rel(lostSincePerf);
-      undet.push({ startSec: s, endSec: durSec, durationSec: r3(durSec - s) });
+      undet.push({ startSec: s, endSec: durSec, durationSec: r3(durSec - s), ...(endPerf - lostSincePerf >= AWAY_MIN_MS ? { closedByMeasurementEnd: true } : {}) });
     }
+    // 離席：顔が5秒以上続けて写らなかった区間（離席ボタンの代わりに自動で記録）
+    const aways = undet.filter(x => x.durationSec * 1000 >= AWAY_MIN_MS).map(x => ({
+      startedAt: isoAt(measStartPerf + x.startSec * 1000), startSec: x.startSec,
+      endedAt: isoAt(measStartPerf + x.endSec * 1000), endSec: x.endSec, durationSec: x.durationSec, auto: true,
+      ...(x.closedByMeasurementEnd ? { closedByMeasurementEnd: true } : {}) }));
+    // 下を向いていて、瞬きの判定を止めていた区間
+    const notJudged = notJudgedIntervals.slice();
+    if (judgePausedSince !== null) { const s0 = rel(judgePausedSince); notJudged.push({ startSec: s0, endSec: durSec, durationSec: r3(durSec - s0) }); }
     const undetSec = r3(undet.reduce((a, x) => a + x.durationSec, 0));
-    const detSec = r3(durSec - undetSec);
+    const notJudgedSec = r3(notJudged.reduce((a, x) => a + x.durationSec, 0));
+    const detSec = r3(Math.max(0, durSec - undetSec - notJudgedSec));   // 顔が写っていて、判定できていた時間
+    const meanOf = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+    const openIn = (a, b) => {   // 15秒ごとに集めた「開き具合（生の値）」の平均
+      let sum = 0, n = 0;
+      slotOpen.forEach((v, i) => { if (v && i * 15 >= a && i * 15 < b) { sum += v.sum; n += v.n; } });
+      return n ? r3(sum / n) : null;
+    };
 
     const actAt = sec => { let i = 0; activityLog.forEach((a, k) => { if (a.atSec <= sec) i = k; }); return activityLog[i]; };
     const perMinute = [];
@@ -1856,17 +2469,21 @@
       const a = m * 60, b = Math.min((m + 1) * 60, durSec), win = b - a;
       if (win <= 0) continue;
       const cnt = blinks.filter(x => x.startSec >= a && x.startSec < b).length;
-      const un = Math.min(win, overlap(undet, a, b)), det = win - un;
+      const un = Math.min(win, overlap(undet, a, b)), nj = Math.min(win - un, overlap(notJudged, a, b)), det = win - un - nj;
+      const durs = blinks.filter(x => x.startSec >= a && x.startSec < b).map(x => x.durationMs);
       perMinute.push({ minute: m + 1, startSec: a, windowSec: r3(win), blinkCount: cnt,
-        detectedSec: r3(det), undetectedSec: r3(un),
+        detectedSec: r3(det), undetectedSec: r3(un), notJudgedSec: r3(nj),
         breakSec: r3(overlap(breaks, a, b)), awaySec: r3(overlap(aways, a, b)),
         blinksPerMinuteDetected: det >= 10 ? r2(cnt / (det / 60)) : null,
+        meanBlinkDurationMs: durs.length ? Math.round(meanOf(durs)) : null,
+        meanOpennessRaw: openIn(a, b),
         activity: actAt(a).label });
     }
 
     const q = quality, avg = (s, n) => n ? r3(s / n) : null, fin = v => isFinite(v) ? r3(v) : null;
     return {
       appVersion: APP_VERSION,
+      uiLanguage: LANG,                        // 表示言語（ja / en）。記録の値は常に日本語
       sessionId,
       savedAt: new Date().toISOString(),
       endReason: reason,    // user / scheduled / tab_hidden / stalled / camera_lost / page_closed
@@ -1881,24 +2498,36 @@
         viewport: { width: innerWidth, height: innerHeight },
         camera: camInfo,
         libraries: LIB_VERSIONS,
+        detection: {                             // どの方式で判定したか
+          engine: engineInfo.name,               // landmarker（AIの瞬きスコア）/ facemesh（旧版・3次元EAR）
+          delegate: engineInfo.delegate,         // GPU / CPU
+          switches: engineInfo.switches.slice(), // GPU と CPU を切り替えた記録
+          msPerFrame: detMsEma === null ? null : Math.round(detMsEma),
+        },
       },
       earThreshold: cfg.earThreshold,
-      thresholdSource,                         // test / confirm_test / manual
+      thresholdScale: 'relative_openness',     // しきい値の目盛り：普段の開き具合を1.0とした割合（ver4〜）
+      thresholdSource,                         // auto（5回の瞬きで自動設定）/ manual（手入力）
       thresholdTest: thresholdSource === 'manual' ? null : testInfo,
       thresholdChanges,                        // 計測中にしきい値を変えた記録
       minClosedMs: cfg.minClosedMs,
       processingFpsCap: cfg.maxFps,
       hysteresis: DET.hysteresis,
       minBlinkIntervalMs: DET.minIntervalMs,
+      maxBlinkDurationMs: DET.maxClosedMs,      // これより長い閉じは瞬きに数えない（events に long_closure として記録）
       plannedDurationSec: plannedSec,
       cameraPreviewHidden: previewHidden(),
       measurement: {
         startedAt: new Date(measStartWall).toISOString(),
         endedAt: isoAt(endPerf),
         durationSec: durSec,                   // 計測開始〜終了の全時間
-        detectedDurationSec: detSec,           // うち、顔(目)を検出できていた時間
+        detectedDurationSec: detSec,           // うち、顔(目)を検出でき、瞬きを判定できていた時間
         undetectedDurationSec: undetSec,
         undetectedIntervals: undet,            // 検出できなかった区間（計測開始からの秒）
+        notJudgedDurationSec: notJudgedSec,    // 下を向いていて、瞬きの判定を止めていた時間の合計
+        notJudgedIntervals: notJudged,         // その区間
+        meanBlinkDurationMs: blinks.length ? Math.round(meanOf(blinks.map(x => x.durationMs))) : null,   // 瞬きの長さの平均
+        meanOpennessRaw: openIn(0, durSec + 1),   // 目の開き具合の平均（生の値：新方式は 1−AIの瞬きスコア、旧方式はEAR）
         blinkCount: blinks.length,
         blinksPerMinute: durSec > 0 ? r2(blinks.length / (durSec / 60)) : null,
         blinksPerMinuteDetected: detSec > 0 ? r2(blinks.length / (detSec / 60)) : null,
@@ -1915,7 +2544,8 @@
         faceWidth: { mean: avg(q.fwSum, q.fwN), min: fin(q.fwMin), max: q.fwN ? r3(q.fwMax) : null },
         brightness: { mean: avg(q.brSum, q.brN), min: fin(q.brMin), max: q.brN ? r3(q.brMax) : null },
         cameraPitchDeg: { mean: avg(q.pitchSum, q.pitchN), min: fin(q.pitchMin), max: fin(q.pitchMax) },   // +：カメラが上すぎ / −：下すぎ
-        warningSec: { tooFar: r2(q.warn.tooFar), tooClose: r2(q.warn.tooClose), offCenter: r2(q.warn.offCenter), dark: r2(q.warn.dark), camHigh: r2(q.warn.camHigh), camLow: r2(q.warn.camLow) },
+        cameraYawDeg: { meanAbs: avg(q.yawSum, q.yawN), maxAbs: q.yawN ? r3(q.yawMax) : null },          // 左右の角度（絶対値）
+        warningSec: { tooFar: r2(q.warn.tooFar), tooClose: r2(q.warn.tooClose), offCenter: r2(q.warn.offCenter), dark: r2(q.warn.dark), camHigh: r2(q.warn.camHigh), camLow: r2(q.warn.camLow), camSide: r2(q.warn.camSide), lookingDown: r2(q.warn.lookingDown) },
       },
       events,                                  // タブ非表示・処理停止・通信切断などの記録
     };
@@ -1929,6 +2559,99 @@
     stalled:     '画面の処理が止まったため、計測を終了しました。それまでのデータは保存されています。',
     camera_lost: 'カメラが切断されたため、計測を終了しました。それまでのデータは保存されています。',
   };
+
+  // ── 結果の表示（主な数値とグラフ）──────────────────────────────
+  var lastResult = null;
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const C_RATE = '#1e9fb3', C_OPEN = '#b8862c';   // 暗い背景用に検証済みの2色
+  const mmss = sec => { sec = Math.max(0, Math.round(sec)); return Math.floor(sec / 60) + ':' + p2(sec % 60); };
+  function svgEl(tag, attrs, parent) {
+    const el = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(el);
+    return el;
+  }
+  // グラフの刻み：計測が短いほど細かく
+  function binSize(dur) { return dur <= 180 ? 15 : dur <= 900 ? 60 : dur <= 2700 ? 180 : 300; }
+  function niceMax(v) { if (!(v > 0)) return 1; const e = Math.pow(10, Math.floor(Math.log10(v))); const f = v / e; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * e; }
+
+  function renderResults(d) {
+    const m = d.measurement, en = LANG === 'en';
+    $('r-dur').textContent = mmss(m.durationSec);
+    const pct = m.durationSec > 0 ? Math.round(m.detectedDurationSec / m.durationSec * 100) : 0;
+    $('r-det').textContent = `顔が写っていた時間 ${mmss(m.detectedDurationSec)}（${pct}%）`;
+    $('r-count').textContent = String(m.blinkCount);
+    $('r-rate').textContent = m.blinksPerMinuteDetected === null ? '—' : m.blinksPerMinuteDetected.toFixed(1);
+    $('r-len').textContent = m.meanBlinkDurationMs === null ? '—' : m.meanBlinkDurationMs + ' ms';
+
+    // 刻みごとに集計（判定できなかった時間を除いて「1分あたり」に直す）
+    const dur = m.durationSec, step = binSize(dur), bins = [];
+    const off = (m.undetectedIntervals || []).concat(m.notJudgedIntervals || []);
+    for (let a = 0; a < dur; a += step) {
+      const b = Math.min(a + step, dur), win = b - a;
+      const judged = Math.max(0, win - Math.min(win, overlap(off, a, b)));
+      const cnt = m.blinks.filter(x => x.startSec >= a && x.startSec < b).length;
+      let sum = 0, n = 0;
+      slotOpen.forEach((v, i) => { if (v && i * 15 >= a && i * 15 < b) { sum += v.sum; n += v.n; } });
+      bins.push({ a, b, rate: judged >= Math.max(5, win * 0.3) ? cnt / (judged / 60) : null, open: n ? sum / n : null });
+    }
+    drawBars($('chart-rate'), bins, dur, en);
+    drawLine($('chart-open'), bins, dur, en);
+  }
+
+  function chartFrame(svg, dur, yMax, yMin, fmt) {
+    svg.textContent = '';
+    const W = svg.clientWidth || 280, H = svg.clientHeight || 100;
+    const L = 30, R = 6, T = 6, B = 14, iw = Math.max(10, W - L - R), ih = Math.max(10, H - T - B);
+    const y = v => T + ih - (v - yMin) / (yMax - yMin) * ih;
+    [yMin, yMax].forEach(v => {   // 目盛りは最小と最大の2本だけ（控えめに）
+      svgEl('line', { x1: L, x2: L + iw, y1: y(v), y2: y(v), stroke: 'var(--border2)', 'stroke-width': 1 }, svg);
+      svgEl('text', { x: L - 4, y: y(v) + 3, 'text-anchor': 'end', class: 'tick' }, svg).textContent = fmt(v);
+    });
+    svgEl('text', { x: L, y: H - 2, class: 'tick' }, svg).textContent = '0:00';
+    svgEl('text', { x: L + iw, y: H - 2, 'text-anchor': 'end', class: 'tick' }, svg).textContent = mmss(dur);
+    return { L, T, iw, ih, y, W, H };
+  }
+  function emptyChart(svg, msg) {
+    svg.textContent = '';
+    const W = svg.clientWidth || 280, H = svg.clientHeight || 100;
+    svgEl('text', { x: W / 2, y: H / 2, 'text-anchor': 'middle', class: 'empty' }, svg).textContent = msg;
+  }
+  function drawBars(svg, bins, dur, en) {
+    const vals = bins.map(b => b.rate).filter(v => v !== null);
+    if (!vals.length) return emptyChart(svg, 'データが足りません');
+    const yMax = niceMax(Math.max(...vals));
+    const f = chartFrame(svg, dur, yMax, 0, v => String(Math.round(v)));
+    const slot = f.iw / bins.length, bw = Math.max(2, Math.min(24, slot - 2));   // 棒は最大24px、隣とは2px空ける
+    bins.forEach((b, i) => {
+      if (b.rate === null) return;
+      const x = f.L + i * slot + (slot - bw) / 2, y0 = f.y(0), y1 = f.y(b.rate), h = Math.max(0, y0 - y1);
+      const r = Math.min(4, bw / 2, h);
+      const path = `M${x},${y0} V${y1 + r} Q${x},${y1} ${x + r},${y1} H${x + bw - r} Q${x + bw},${y1} ${x + bw},${y1 + r} V${y0} Z`;
+      const g = svgEl('g', {}, svg);
+      svgEl('rect', { x: f.L + i * slot, y: f.T, width: slot, height: f.ih, fill: 'transparent' }, g);   // ホバーしやすい広めの当たり判定
+      svgEl('path', { d: path, fill: C_RATE }, g);
+      svgEl('title', {}, g).textContent = en ? `${mmss(b.a)}–${mmss(b.b)}: ${b.rate.toFixed(1)} blinks/min` : `${mmss(b.a)}〜${mmss(b.b)}：${b.rate.toFixed(1)} 回/分`;
+    });
+  }
+  function drawLine(svg, bins, dur, en) {
+    const pts = bins.map((b, i) => ({ ...b, i })).filter(b => b.open !== null);
+    if (!pts.length) return emptyChart(svg, 'データが足りません');
+    const vs = pts.map(p => p.open);
+    let lo = Math.min(...vs), hi = Math.max(...vs);
+    const pad = Math.max((hi - lo) * 0.15, 0.02); lo = Math.max(0, lo - pad); hi = hi + pad;
+    const f = chartFrame(svg, dur, hi, lo, v => v.toFixed(2));
+    const slot = f.iw / bins.length, X = i => f.L + i * slot + slot / 2;
+    svgEl('path', { d: pts.map((p, k) => (k ? 'L' : 'M') + X(p.i) + ',' + f.y(p.open)).join(' '), fill: 'none', stroke: C_OPEN, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
+    pts.forEach((p, k) => {
+      const g = svgEl('g', {}, svg);
+      svgEl('rect', { x: f.L + p.i * slot, y: f.T, width: slot, height: f.ih, fill: 'transparent' }, g);
+      if (pts.length <= 24 || k === pts.length - 1)   // 点が多いときは最後の点だけ
+        svgEl('circle', { cx: X(p.i), cy: f.y(p.open), r: 4, fill: C_OPEN, stroke: 'var(--surface2)', 'stroke-width': 2 }, g);
+      svgEl('title', {}, g).textContent = en ? `${mmss(p.a)}–${mmss(p.b)}: openness ${p.open.toFixed(2)}` : `${mmss(p.a)}〜${mmss(p.b)}：開き具合 ${p.open.toFixed(2)}`;
+    });
+  }
+  window.addEventListener('resize', () => { if (stage === 'end' && lastResult) renderResults(lastResult); });
 
   function endMeasurement(reason, endPerf = performance.now()) {
     if (!measuring) return;
@@ -1944,6 +2667,8 @@
     $('end-send').textContent = 'データを保存しています…';
     $('btn-end-home').disabled = true;
     setStage('end');
+    lastResult = data;
+    requestAnimationFrame(() => renderResults(data));   // 結果を見せている間に、データを送る
 
     deliverData(data, fileName).then(r => {
       $('end-send').textContent =
@@ -2101,7 +2826,7 @@
   $('btn-first-no').addEventListener('click', openInput);
 
   $('btn-input-back').addEventListener('click', () => setStage('welcome'));
-  $('btn-input-check').addEventListener('click', () => { const v = readInputThreshold(); if (v !== null) enterTest(v, 'confirm'); });
+  $('btn-input-check').addEventListener('click', () => enterTest('recheck'));
   $('btn-input-go').addEventListener('click', () => {
     const v = readInputThreshold();
     if (v === null) return;
@@ -2124,7 +2849,6 @@
   $('btn-confirm-no').addEventListener('click', () => $('modal-confirm').classList.remove('show'));
   $('btn-confirm-yes').addEventListener('click', () => endMeasurement('user'));
   $('meas-btn-break').addEventListener('click', () => toggleEvent('break'));
-  $('meas-btn-away').addEventListener('click', () => toggleEvent('away'));
   $('btn-back-start').addEventListener('click', () => { if (!measuring) { setStage('welcome'); resendPending(); } });
 
   // 終了画面 → 最初の画面（次の人のために入力をリセット）
@@ -2143,7 +2867,7 @@
     if (b) b.blur();
   });
 
-  // キーボード：[1]=休憩 / [2]=離席 / Space=テスト中は判定・計測中は目の位置リセット
+  // キーボード：[1]=休憩 / Space=テスト中は判定・計測中は目の位置リセット
   document.addEventListener('keydown', e => {
     if (e.repeat) return;
     if (stage !== 'measure' && stage !== 'test') return;
@@ -2151,7 +2875,6 @@
     const tag = document.activeElement && document.activeElement.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     if (stage === 'measure' && e.key === '1') toggleEvent('break');
-    else if (stage === 'measure' && e.key === '2') toggleEvent('away');
     else if (e.code === 'Space') {
       e.preventDefault();
       if (stage === 'test') judgeTrial(); else resetEyeTracking();
@@ -2180,38 +2903,16 @@
     if (measuring) $('camera-card').classList.toggle('preview-hidden', e.target.checked);
   });
 
-  // 感度ボタン・しきい値スライダー（管理者用）
-  const SENS_PRESETS = [
-    { ear: 0.13, desc: '低め — まぶたが大きく動いたときだけ反応します' },
-    { ear: 0.17, desc: 'やや低め — しっかり目を閉じると反応します' },
-    { ear: 0.20, desc: '標準 — 通常の瞬きで反応します' },
-    { ear: 0.24, desc: 'やや高め — 浅い瞬きでも反応しやすくなります' },
-    { ear: 0.30, desc: '高め — 少し目を細めるだけで反応します' },
-  ];
+  // しきい値スライダー
   function logThresholdChange(v) {
     if (measuring && v !== lastLoggedThr) {
       thresholdChanges.push({ atSec: rel(performance.now()), from: lastLoggedThr, to: v });
       lastLoggedThr = v;
     }
   }
-  document.querySelectorAll('.sens-btn').forEach((btn, i) => {
-    btn.addEventListener('click', () => {
-      cfg.earThreshold = SENS_PRESETS[i].ear;
-      $('ear-slider').value = cfg.earThreshold;
-      $('ear-val-txt').textContent = cfg.earThreshold.toFixed(2);
-      $('sens-desc').textContent = SENS_PRESETS[i].desc;
-      document.querySelectorAll('.sens-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      logThresholdChange(cfg.earThreshold);
-    });
-  });
   $('ear-slider').addEventListener('input', e => {
     cfg.earThreshold = +e.target.value;
     $('ear-val-txt').textContent = cfg.earThreshold.toFixed(2);
-    let bestIdx = 0, bestDist = Infinity;
-    SENS_PRESETS.forEach((p, i) => { const d = Math.abs(p.ear - cfg.earThreshold); if (d < bestDist) { bestDist = d; bestIdx = i; } });
-    document.querySelectorAll('.sens-btn').forEach((b, i) => b.classList.toggle('active', i === bestIdx));
-    $('sens-desc').textContent = SENS_PRESETS[bestIdx].desc;
   });
   // 手動で動かして指を離したときだけ記録（テスト中の自動変更は 'change' を出さない）
   $('ear-slider').addEventListener('change', e => logThresholdChange(+e.target.value));
@@ -2235,6 +2936,11 @@
     cfg.minClosedMs = +e.target.value;
     $('minclosed-val').textContent = cfg.minClosedMs;
   });
+
+  // ── 表示言語 ─────────────────────────────────────────────────
+  $('lang-select').addEventListener('change', e => applyLanguage(e.target.value));
+  i18nObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+  applyLanguage(LANG);
 
   // ── 起動時 ───────────────────────────────────────────────────
   checkUpload();
