@@ -401,6 +401,7 @@
     .test-thr span { color: var(--accent); font-size: 14px; }
     .test-msg { font-size: clamp(15px, 3.2vw, 20px); font-weight: 700; margin: 4px 0 2px; }
     .test-sub { font-size: 12px; color: var(--text-dim); min-height: 18px; line-height: 1.6; }
+    .test-diag { font-size: 11px; color: var(--text-dim); opacity: .8; min-height: 16px; }
     .test-big-thr {
       font-family: var(--font-head); font-size: 44px; color: var(--accent);
       letter-spacing: .05em; line-height: 1.1;
@@ -612,7 +613,7 @@
   <button id="menu-btn" aria-label="メニュー">
     <span></span><span></span><span></span>
   </button>
-  <div id="app-title-label">瞬き検出アプリ ver4.3（研究用）</div>
+  <div id="app-title-label">瞬き検出アプリ ver4.5（研究用）</div>
 
   <!-- ── MENU PANEL ── -->
   <div id="menu-overlay"></div>
@@ -783,6 +784,7 @@
         <div class="test-thr">目の開き具合 <span id="test-thr-val">—</span></div>
         <div class="test-msg" id="test-msg">カメラを起動しています…</div>
         <div class="test-sub" id="test-sub"></div>
+        <div class="test-diag" id="test-diag"></div>
         <button id="btn-test-judge" class="cam-start-btn" disabled>判定する<span class="test-judge-key">[Space]</span></button>
       </div>
 
@@ -933,9 +935,9 @@
 
 <script>
   // ============================================================
-  //  BLINK STUDY — 瞬き計測システム（研究用）ver3.1
+  //  BLINK STUDY — 瞬き計測システム（研究用）
   // ============================================================
-  const APP_VERSION     = 'ver4.3';
+  const APP_VERSION     = 'ver4.5';
   const LIB_VERSIONS    = { tasksVision: '0.10.35', faceLandmarkerModel: 'float16/1', faceMesh: '0.4.1633559619' };   // 読み込むMediaPipeのバージョン（固定）
   const CONSENT_VERSION = '2026-10';                         // 同意文を変えたら更新
 
@@ -943,8 +945,8 @@
   // 空のままなら、このPCにJSONをダウンロードします。
   const UPLOAD_URL        = 'https://script.google.com/macros/s/AKfycbyPab1181EJpo0zH67DQdFO8AjIz7-MF0VXDb9xSslqtxEbuYoCSYkxbx-hAFol9zVT/exec';   // Apps ScriptのウェブアプリURL（…/exec）
   const UPLOAD_TOKEN      = 'mabataki';   // Apps Script側のTOKENと同じ合言葉
-  const SERVER_VERSION    = '2026-10-31b';   // Code.gs の SERVER_VERSION と同じ値（違えば、受信側が古いまま）
-  const UPLOAD_TIMEOUT_MS = 15000;
+  const SERVER_VERSION    = '2026-10-31c';   // Code.gs の SERVER_VERSION と同じ値（違えば、受信側が古いまま）
+  const UPLOAD_TIMEOUT_MS = 30000;   // 受信側が混んでいると書き込みに時間がかかるため長めに
   const UPLOAD_RETRIES    = 2;    // 送信の試行回数
 
   // ── 調整用の定数 ─────────────────────────────────────────────
@@ -960,7 +962,7 @@
   const STALL = { hiddenMs: 5000, visibleMs: 20000, noteMs: 1500 };  // 画面が止まったと判断する時間
   // しきい値の自動設定：5回瞬きしてもらい、閉じた時と開いた時の値の中間をしきい値にする
   // 瞬きを拾う基準は、カウントダウン中（目を開いている間）の値の揺れ幅から決める（下から撮るなど、開閉の差が小さくても拾えるように）
-  const TEST  = { target: 5, minDips: 3, minDepth: 0.06, noiseK: 4, minSeparation: 0.08, sepK: 5, thrMin: 0.25, thrMax: 0.95, timeoutSec: 20,
+  const TEST  = { target: 5, minDips: 3, minDepth: 0.06, maxDepth: 0.15, noiseK: 4, noiseMax: 0.04, minSeparation: 0.08, sepK: 5, thrMin: 0.25, thrMax: 0.95, timeoutSec: 20,
                   countdownSec: 3, pauseMs: 3000 };
   const GENRES = ['FPS / TPS', 'バトルロイヤル', 'MOBA', 'アクション', 'アクションRPG', 'RPG', 'アドベンチャー',
                   'オープンワールド', 'シミュレーション', '経営・育成', '戦略・RTS', 'パズル', '音楽・リズム',
@@ -1012,7 +1014,7 @@
     '5回瞬きして自動で設定': 'Set automatically with 5 blinks',
     // ── 共通・ヘッダー ──
     'BLINK STUDY — 瞬き計測システム': 'BLINK STUDY — Blink Measurement System',
-    '瞬き検出アプリ ver4.3（研究用）': 'Blink Detection App ver4.3 (Research)',
+    '瞬き検出アプリ ver4.5（研究用）': 'Blink Detection App ver4.5 (Research)',
     'メニュー': 'Menu',
     // ── メニュー ──
     '// 計測の設定': '// Measurement settings',
@@ -1212,6 +1214,8 @@
       m => `⚠ Data upload: the receiver (Apps Script) is still an old version (${m[1] === '旧版' ? 'old' : m[1]}). Redeploy it in Apps Script via "Deploy → Manage deployments → Edit → New version"`],
     [/^\/\/ 未送信のデータが (\d+) 件あります（(.*)）$/, m => `// ${m[1]} unsent data file(s) (${EN[m[2]] || m[2]})`],
     [/^⚠ 送信できなかったため、このPCに保存しました。次にこのアプリを開いたとき、自動で再送します。（原因: ([\s\S]*)）$/, m => `⚠ Could not send, so the data was saved on this PC. It will be resent automatically the next time you open this app. (Reason: ${tr(m[1])})`],
+    [/^⚠ 送信できず、自動再送のための控えも保存できませんでした（ブラウザの保存領域がいっぱい・使えない）。ダウンロードフォルダの (\S+) を研究者に渡してください。（原因: ([\s\S]*)）$/, m => `⚠ Could not send, and a copy for automatic resending could not be stored either (browser storage is full or unavailable). Please give ${m[1]} in your Downloads folder to the researcher. (Reason: ${tr(m[2])})`],
+    [/^目安：([\d.]+) より下がると1回$/, m => `Counts one blink below ${m[1]}`],
     [/^(\d+)秒以内に応答がありませんでした$/, m => `No response within ${m[1]} seconds`],
     [/^サーバーのエラー: ([\s\S]*)$/, m => `Server error: ${m[1]}`],
     [/^通信エラー: ([\s\S]*)$/, m => `Network error: ${m[1]}`],
@@ -1339,14 +1343,19 @@
   function setStage(s) { stage = s; document.body.dataset.stage = s; keepScreenOn(s === 'test' || s === 'measure'); }
 
   // しきい値テスト・計測の画面では、画面が自動で消えないようにする（消えると計測が止まるため）
-  var wakeLock = null;
+  var wakeLock = null, wakeWant = false, wakeBusy = false;
   async function keepScreenOn(on) {
+    wakeWant = on;
     try {
-      if (on && !wakeLock && 'wakeLock' in navigator && document.visibilityState === 'visible') {
-        wakeLock = await navigator.wakeLock.request('screen');
-        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      if (on && !wakeLock && !wakeBusy && 'wakeLock' in navigator && document.visibilityState === 'visible') {
+        wakeBusy = true;
+        const w = await navigator.wakeLock.request('screen');
+        wakeBusy = false;
+        if (!wakeWant) { w.release().catch(() => {}); return; }   // 取れるまでの間に不要になった
+        wakeLock = w;
+        w.addEventListener('release', () => { if (wakeLock === w) wakeLock = null; });
       } else if (!on && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
-    } catch (e) { /* 使えない端末では何もしない */ }
+    } catch (e) { wakeBusy = false; /* 使えない端末では何もしない */ }
   }
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && (stage === 'test' || stage === 'measure')) keepScreenOn(true);
@@ -1491,7 +1500,7 @@
   async function frameLoop() {
     const now = performance.now();
     const newFrame = !hasRvfc || frameReady || now - lastRvfcAt > 250;
-    if (engine && fmReady && video.readyState >= 2 && newFrame && (stage === 'test' || stage === 'measure')
+    if (engine && fmReady && cameraRunning && video.readyState >= 2 && newFrame && (stage === 'test' || stage === 'measure')
         && now - lastSentAt >= 1000 / cfg.maxFps - 3) {
       lastSentAt = now; frameReady = false;
       const e = engine, t0 = performance.now();
@@ -1837,6 +1846,11 @@
     trackFps(t);
     if (measuring) quality.frames++;
     if (gap > 500) resetBlinkState();                       // 処理が止まった前後をまたいで瞬きを数えない
+    // 処理が0.5秒以上止まっていた空白（目の位置のリセット中・端末が一時的に重い等）は、顔が写っていたとは言えないので未検出に数える
+    if (measuring && stage === 'measure' && gap > 500 && lostSincePerf === null) {
+      if (judgePaused) setJudgePaused(false, prevFrameT);
+      undetectedIntervals.push({ startSec: rel(prevFrameT), endSec: rel(t), durationSec: r3(rel(t) - rel(prevFrameT)), noFrames: true });
+    }
     if (measuring && gap > STALL.noteMs && events.length < 500) events.push({ atSec: rel(prevFrameT), type: 'frame_stall', durationSec: r3(gap / 1000) });
     prevFrameT = t;
 
@@ -1931,8 +1945,13 @@
     if (judgePaused) return;                               // 下を向いている間は、瞬きを判定しない
     if (stage === 'test') {
       if (testState === 'running') calFeed(t, e.avg);
-      else if (testState === 'countdown') calPre.push(e.avg);
-      if (t - lastTestValAt > 100) { lastTestValAt = t; $('test-thr-val').textContent = e.avg.toFixed(2); }
+      else if (testState === 'countdown') calPre.push([t, e.avg]);
+      if (t - lastTestValAt > 100) {
+        lastTestValAt = t; $('test-thr-val').textContent = e.avg.toFixed(2);
+        // 数える目安（うまく数えられないときの確認用）：開き具合がこの値より下がると1回と数える
+        const c = cal, ref = c && (c.down ? c.ref : (c.recent.length >= 4 ? median(c.recent.map(x => x[1])) : null));
+        $('test-diag').textContent = (testState === 'running' && ref !== null && ref !== undefined) ? `目安：${(ref - c.depth).toFixed(2)} より下がると1回` : '';
+      }
     }
     processEar(t, e);
   }
@@ -2020,7 +2039,7 @@
   let testTrials = [], testInfo = null;
   let thresholdSource = null;   // 'auto' | 'manual'
   // 試行中の記録：瞬き（目の開き具合のくぼみ）ごとの最小値と、開いている間の値
-  let cal = null, calPre = [];   // calPre：カウントダウン中の開き具合（揺れ幅を測る）
+  let cal = null, calPre = [], calPreFrom = 0;   // calPre：カウントダウン中の [時刻, 開き具合]（揺れ幅を測る）
 
   function clearTestTimers() { testTimers.forEach(t => { clearTimeout(t); clearInterval(t); }); testTimers = []; }
   function showTestView(v) {
@@ -2059,7 +2078,7 @@
   function runTrial() {
     clearTestTimers();
     testState = 'countdown';
-    cal = null; calPre = [];
+    cal = null; calPre = []; calPreFrom = performance.now() + 1000;   // 基準を測り直した直後の1秒は、値が落ち着かないので使わない
     resetBaseline();   // 「普段の開き具合」も測り直す（カウントダウンの間に、開いた目で基準が決まる）
     $('btn-test-judge').disabled = true;
     let n = TEST.countdownSec;
@@ -2071,13 +2090,15 @@
         testTimers.push(setTimeout(tick, 1000));
       } else {
         testState = 'running';
-        // 目を開いている間の中央値と揺れ幅（MAD）から、「瞬き」と見なすくぼみの深さを決める
-        const pre = calPre.length >= 10 ? calPre : [1];
-        const med = median(pre), mad = median(pre.map(v => Math.abs(v - med)));
-        const noise = Math.max(mad * 1.4826, 0.01);
-        const depth = Math.max(TEST.minDepth, TEST.noiseK * noise);
-        cal = { dips: [], open: [], down: false, downAt: 0, min: 1, startedAt: performance.now(),
-                med, noise, dipDown: med - depth, dipUp: med - Math.max(TEST.minDepth / 2, 2 * noise) };
+        // 目を開いている間の揺れ幅から、「瞬き」と見なすくぼみの深さを決める。
+        // 揺れ幅は「となり合うフレームの差」から求める（基準の測り直しなどで値の高さが途中で変わっても、揺れ幅が大きく見積もられない）。
+        // 揺れ幅を大きく見積もりすぎると、速くて浅い本物の瞬きを拾えなくなるので、深さには上限を設ける
+        const pre = calPre.filter(x => x[0] >= calPreFrom).map(x => x[1]);
+        const diffs = []; for (let i = 1; i < pre.length; i++) diffs.push(Math.abs(pre[i] - pre[i - 1]));
+        const noise = Math.min(Math.max(diffs.length >= 8 ? median(diffs) * 1.4826 / Math.SQRT2 : 0.02, 0.01), TEST.noiseMax);
+        const depth = Math.min(Math.max(TEST.minDepth, TEST.noiseK * noise), TEST.maxDepth);
+        cal = { dips: [], open: [], down: false, downAt: 0, min: 1, ref: 1, startedAt: performance.now(),
+                recent: calPre.filter(x => x[0] >= performance.now() - 1000), noise, depth, upGap: Math.max(0.03, depth / 2) };
         $('test-msg').textContent = `${TEST.target}回 瞬きしてください`;
         calProgress();
         $('btn-test-judge').disabled = false;
@@ -2088,19 +2109,24 @@
   }
 
   // 試行中のフレームごとの処理：しきい値を使わずに、目の開き具合の「くぼみ」を瞬きとして拾う
+  // くぼみは「直前1秒の開いている時の値（中央値）」と比べて判定する（座り直しや見る場所の変化で値の高さが変わっても追従する）
   function calFeed(t, v) {
     if (!cal) return;
-    if (!cal.down) {
-      if (v < cal.dipDown) { cal.down = true; cal.downAt = t; cal.min = v; }
-      else cal.open.push(v);
+    const c = cal;
+    if (!c.down) {
+      while (c.recent.length && t - c.recent[0][0] > 1000) c.recent.shift();
+      const ref = c.recent.length >= 4 ? median(c.recent.map(x => x[1])) : null;
+      if (ref !== null && v < ref - c.depth) { c.down = true; c.downAt = t; c.min = v; c.ref = ref; return; }
+      c.recent.push([t, v]); c.open.push(v);
       return;
     }
-    cal.min = Math.min(cal.min, v);
-    if (v > cal.dipUp) {
-      cal.down = false;
-      const dur = t - cal.downAt;
-      if (dur >= 30 && dur <= DET.maxClosedMs) {
-        cal.dips.push({ min: cal.min, durationMs: Math.round(dur) });
+    c.min = Math.min(c.min, v);
+    if (t - c.downAt > DET.maxClosedMs) { c.down = false; c.recent = []; return; }   // 長すぎる＝瞬きではなく値の高さが変わった。測り直す
+    if (v > c.ref - c.upGap) {
+      c.down = false;
+      const dur = t - c.downAt;
+      if (dur >= 30) {
+        cal.dips.push({ min: c.min, ref: c.ref, durationMs: Math.round(dur) });
         calSound.tick();
         calProgress();
         if (cal.dips.length >= TEST.target) testTimers.push(setTimeout(judgeTrial, 400));   // 5回そろったら自動で決める
@@ -2115,17 +2141,16 @@
     testState = 'judging';
     $('btn-test-judge').disabled = true;
     const dips = cal.dips.slice(-TEST.target);              // 6回以上あれば最後の5回を使う
-    // 試行中に実際に測った「開いた時」を 1.0 として計算する（それまでの基準が古くても、結果がずれない）
-    const openRaw = median(cal.open) || 1;                  // 開いた時：開いている間の値の中央値
-    const closedRaw = median(dips.map(d => d.min));         // 閉じた時：くぼみの最小値の中央値
-    const open = 1, closed = closedRaw === null ? null : closedRaw / openRaw;
+    // 瞬きごとに「その直前の開いた時」を 1.0 として、閉じた時の割合を出す（それまでの基準が古くても、結果がずれない）
+    const openRaw = median(cal.open) || 1;                  // 開いた時：開いている間の値の中央値（揺れ幅の換算用）
+    const open = 1, closed = median(dips.map(d => d.min / Math.max(d.ref, 0.05)));
     const trial = { trial: testTrials.length + 1, dips: dips.length, closedOpenness: closed === null ? null : r3(closed),
-                    openOpenness: 1, noise: r3(cal.noise), threshold: null, outcome: '' };
+                    openOpenness: 1, noise: r3(cal.noise), depth: r3(cal.depth), threshold: null, outcome: '' };
     testTrials.push(trial);
     let retry = '';
     if (dips.length < TEST.minDips) {
       retry = `瞬きを${dips.length}回しか検出できませんでした。顔がカメラに写っているか確認して、もう一度お願いします`;
-    } else if (open - closed < Math.max(TEST.minSeparation, TEST.sepK * cal.noise / openRaw)) {
+    } else if (open - closed < Math.max(TEST.minSeparation, Math.min(TEST.sepK * cal.noise / openRaw, TEST.maxDepth))) {
       retry = '目を閉じた時と開いた時の差が小さく、うまく測れませんでした。カメラの位置や部屋の明るさを確認して、もう一度お願いします';
     }
     if (retry) {
@@ -2136,7 +2161,7 @@
       testTimers.push(setTimeout(runTrial, TEST.pauseMs + 1500));
       return;
     }
-    // 閉じた時と開いた時のちょうど中間をしきい値にする（極端な値にならないよう 0.25〜0.80 に収める）
+    // 閉じた時と開いた時のちょうど中間をしきい値にする（極端な値にならないよう 0.25〜0.95 に収める）
     const thr = Math.min(TEST.thrMax, Math.max(TEST.thrMin, Math.round(((closed + open) / 2) * 100) / 100));
     trial.threshold = thr; trial.outcome = 'success';
     calSound.done();
@@ -2161,7 +2186,7 @@
   const THR_MIN = 0.05, THR_MAX = 0.95;
 
   function loadSavedThreshold() {
-    const id = $('p-id').value.trim();
+    const id = $('p-id').value.trim() || savedPid;
     const byId = store.get(THR_BY_ID_KEY, {});
     if (id && byId[id]) return { value: byId[id].value, label: `ID「${id}」の前回の値` };
     const last = store.get(LAST_THR_KEY, null);
@@ -2395,8 +2420,9 @@
     evLog.break = { list: [], open: null };
     notJudgedIntervals = []; judgePausedSince = null; slotOpen = [];
     activityLog = [{ atSec: 0, ...activity, label: activityLabel(activity) }];
+    saveThreshold();   // ID は活動の画面で決まるので、ここでも保存（そのIDの値として次回に使う）
     resetBlinkState(); lastBlinkEndT = -1e9; openEma = null;
-    lastFrameAt = measStartPerf; prevFrameT = 0;
+    lastFrameAt = measStartPerf; prevFrameT = measStartPerf;
     const pm = parseFloat($('opt-planned').value);
     plannedSec = (!isNaN(pm) && pm > 0) ? Math.round(pm * 60) : null;
 
@@ -2481,12 +2507,16 @@
     const closedCopy = o => { const r = { ...o, endedAt: isoAt(endPerf), endSec: durSec, closedByMeasurementEnd: true }; r.durationSec = r3(r.endSec - r.startSec); return r; };
     const breaks = evLog.break.list.concat(evLog.break.open ? [closedCopy(evLog.break.open)] : []);
     const undet  = undetectedIntervals.slice();
+    const lastT = Math.max(prevFrameT, measStartPerf);
+    if (lostSincePerf === null && endPerf - lastT > 500) {   // 最後の処理から終了までの空白（処理が止まったまま終わった）
+      undet.push({ startSec: rel(lastT), endSec: durSec, durationSec: r3(durSec - rel(lastT)), noFrames: true });
+    }
     if (lostSincePerf !== null && endPerf - lostSincePerf >= LOST_MIN_MS) {
       const s = rel(lostSincePerf);
       undet.push({ startSec: s, endSec: durSec, durationSec: r3(durSec - s), ...(endPerf - lostSincePerf >= AWAY_MIN_MS ? { closedByMeasurementEnd: true } : {}) });
     }
     // 離席：顔が5秒以上続けて写らなかった区間（離席ボタンの代わりに自動で記録）
-    const aways = undet.filter(x => x.durationSec * 1000 >= AWAY_MIN_MS).map(x => ({
+    const aways = undet.filter(x => !x.noFrames && x.durationSec * 1000 >= AWAY_MIN_MS).map(x => ({
       startedAt: isoAt(measStartPerf + x.startSec * 1000), startSec: x.startSec,
       endedAt: isoAt(measStartPerf + x.endSec * 1000), endSec: x.endSec, durationSec: x.durationSec, auto: true,
       ...(x.closedByMeasurementEnd ? { closedByMeasurementEnd: true } : {}) }));
@@ -2701,6 +2731,8 @@
     const fileName = sessionId + '.json';
     clearInterval(measTimer);
     measuring = false;
+    saveThreshold();
+    document.querySelectorAll('.modal.show').forEach(m => m.classList.remove('show'));   // 予定時間で終わったときなど、開いたままの画面を閉じる
     resetMeasureUI();
 
     $('end-title').textContent = '計測が終了しました';
@@ -2711,13 +2743,15 @@
     lastResult = data;
     requestAnimationFrame(() => renderResults(data));   // 結果を見せている間に、データを送る
 
+    sendingNow++;
     deliverData(data, fileName).then(r => {
       $('end-send').textContent =
         r.where === 'cloud' ? '✅ データを送信しました。' :
         r.where === 'local' ? '✅ データをこのPCに保存しました（ダウンロードフォルダ）。' :
-        `⚠ 送信できなかったため、このPCに保存しました。次にこのアプリを開いたとき、自動で再送します。（原因: ${r.reason}）`;
+        r.kept ? `⚠ 送信できなかったため、このPCに保存しました。次にこのアプリを開いたとき、自動で再送します。（原因: ${r.reason}）`
+               : `⚠ 送信できず、自動再送のための控えも保存できませんでした（ブラウザの保存領域がいっぱい・使えない）。ダウンロードフォルダの ${fileName} を研究者に渡してください。（原因: ${r.reason}）`;
       $('btn-end-home').disabled = false;
-    });
+    }).finally(() => { sendingNow--; });
   }
 
   // 停止の監視：画面が見えなくなる／処理が止まったら、止まった時点で計測を終了する
@@ -2792,30 +2826,44 @@
     return { ok: false, reason };
   }
 
+  let sendingNow = 0;
+  window.addEventListener('beforeunload', e => {   // 送信中に閉じようとしたら確認する（控えはあるので、閉じても次回に再送される）
+    if (sendingNow > 0) { e.preventDefault(); e.returnValue = ''; }
+  });
   async function deliverData(data, filename) {
     if (!UPLOAD_URL) { downloadLocal(data, filename); return { where: 'local' }; }
+    const kept = addPending(data, filename);
     const res = await sendToServer(data, filename);
-    if (res.ok) return { where: 'cloud' };
+    if (res.ok) { removePending(filename); return { where: 'cloud' }; }
     downloadLocal(data, filename);
-    addPending(data, filename);
-    return { where: 'local+pending', reason: res.reason };
+    return { where: 'local+pending', reason: res.reason, kept };
   }
 
   // 未送信データ（localStorage）
   let resending = false;
   const getPending = () => store.get(PENDING_KEY, []);
+  // 保存領域が足りないときは、古い控えから捨てて入るまで試す。入らなければ false
   function addPending(data, fileName) {
     const list = getPending().filter(x => x.fileName !== fileName);
     list.push({ fileName, data });
     while (list.length > 20) list.shift();
-    store.set(PENDING_KEY, list);
+    while (list.length) {
+      if (store.set(PENDING_KEY, list)) return true;
+      if (list.length === 1) break;
+      list.shift();
+    }
+    return false;
+  }
+  function removePending(fileName) {
+    const list = getPending();
+    if (list.some(x => x.fileName === fileName)) store.set(PENDING_KEY, list.filter(x => x.fileName !== fileName));
   }
   function updatePendingStatus(note) {
     const n = getPending().length;
     $('pending-status').textContent = n ? `// 未送信のデータが ${n} 件あります${note ? '（' + note + '）' : '（自動で再送します）'}` : '';
   }
   async function resendPending() {
-    if (!UPLOAD_URL || resending) { updatePendingStatus(); return; }
+    if (!UPLOAD_URL || resending || sendingNow > 0) { updatePendingStatus(); return; }   // 送信中のデータを二重に送らない
     const list = getPending();
     if (!list.length) { updatePendingStatus(); return; }
     resending = true; updatePendingStatus('再送中…');
@@ -2954,6 +3002,7 @@
   $('ear-slider').addEventListener('input', e => {
     cfg.earThreshold = +e.target.value;
     $('ear-val-txt').textContent = cfg.earThreshold.toFixed(2);
+    $('meas-thr').textContent = cfg.earThreshold.toFixed(2);
   });
   // 手動で動かして指を離したときだけ記録（テスト中の自動変更は 'change' を出さない）
   $('ear-slider').addEventListener('change', e => logThresholdChange(+e.target.value));
