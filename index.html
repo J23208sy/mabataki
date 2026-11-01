@@ -623,7 +623,7 @@
   <button id="menu-btn" aria-label="メニュー">
     <span></span><span></span><span></span>
   </button>
-  <div id="app-title-label">瞬き検出アプリ ver4.8（研究用）</div>
+  <div id="app-title-label">瞬き検出アプリ ver4.9（研究用）</div>
 
   <!-- ── MENU PANEL ── -->
   <div id="menu-overlay"></div>
@@ -922,6 +922,10 @@
         <label for="act-game" style="margin-top:10px">ゲーム名（任意）</label>
         <input type="text" id="act-game" maxlength="60" autocomplete="off" placeholder="書かなくてもOK">
       </div>
+      <div class="field act-field" id="act-work-box" style="display:none">
+        <label for="act-work-genre">作業の種類</label>
+        <select id="act-work-genre"></select>
+      </div>
       <div class="field act-field" id="act-other-box" style="display:none">
         <label for="act-detail">内容（詳しく）</label>
         <input type="text" id="act-detail" maxlength="60" autocomplete="off" placeholder="内容を簡単に書いてください">
@@ -951,7 +955,7 @@
   // ============================================================
   //  BLINK STUDY — 瞬き計測システム（研究用）
   // ============================================================
-  const APP_VERSION     = 'ver4.8';
+  const APP_VERSION     = 'ver4.9';
   const LIB_VERSIONS    = { tasksVision: '0.10.35', faceLandmarkerModel: 'float16/1', faceMesh: '0.4.1633559619' };   // 読み込むMediaPipeのバージョン（固定）
   const CONSENT_VERSION = '2026-10';                         // 同意文を変えたら更新
 
@@ -982,6 +986,9 @@
                   'オープンワールド', 'シミュレーション', '経営・育成', '戦略・RTS', 'パズル', '音楽・リズム',
                   'スポーツ', 'レース', '格闘', 'ホラー', 'サンドボックス・建築', 'カード・ボードゲーム',
                   'ビジュアルノベル', 'ローグライク', 'プラットフォーマー', 'シューティング（STG）', 'その他・不明'];
+  const WORK_GENRES = ['動画編集', 'プログラミング', 'レポート・文書作成', '表計算・データ分析', 'プレゼン資料作成', 'デザイン・イラスト',
+                       '3DCG・CAD', '音楽制作', '勉強・オンライン授業', '調べもの・ネット閲覧', 'SNS・チャット', 'メール・事務作業', 'その他・不明'];
+  const GENRE_UNSET = '未回答';   // ジャンルの最初の選択
 
   // 検出感度の目盛りが変わったので、保存先も変える（以前のEARの検出感度は使えない）
   const PENDING_KEY = 'blink_pending_v1', LAST_THR_KEY = 'blink_last_thr_v2',
@@ -1029,7 +1036,7 @@
     '5回瞬きして自動で設定': 'Set automatically with 5 blinks',
     // ── 共通・ヘッダー ──
     'BLINK STUDY — 瞬き計測システム': 'BLINK STUDY — Blink Measurement System',
-    '瞬き検出アプリ ver4.8（研究用）': 'Blink Detection App ver4.8 (Research)',
+    '瞬き検出アプリ ver4.9（研究用）': 'Blink Detection App ver4.9 (Research)',
     'メニュー': 'Menu',
     // ── メニュー ──
     '// 計測の設定': '// Measurement settings',
@@ -1162,6 +1169,10 @@
     'オープンワールド': 'Open world', 'シミュレーション': 'Simulation', '経営・育成': 'Management & raising', '戦略・RTS': 'Strategy / RTS',
     'パズル': 'Puzzle', '音楽・リズム': 'Music & rhythm', 'スポーツ': 'Sports', 'レース': 'Racing', '格闘': 'Fighting', 'ホラー': 'Horror',
     'サンドボックス・建築': 'Sandbox & building', 'カード・ボードゲーム': 'Card & board games', 'ビジュアルノベル': 'Visual novel',
+    '作業の種類': 'Type of work',
+    '動画編集': 'Video editing', 'プログラミング': 'Programming', 'レポート・文書作成': 'Reports / documents', '表計算・データ分析': 'Spreadsheets / data analysis',
+    'プレゼン資料作成': 'Presentation slides', 'デザイン・イラスト': 'Design / illustration', '3DCG・CAD': '3DCG / CAD', '音楽制作': 'Music production',
+    '勉強・オンライン授業': 'Studying / online classes', '調べもの・ネット閲覧': 'Research / web browsing', 'SNS・チャット': 'Social media / chat', 'メール・事務作業': 'Email / office work',
     'ローグライク': 'Roguelike', 'プラットフォーマー': 'Platformer', 'シューティング（STG）': 'Shooter (STG)', 'その他・不明': 'Other / unknown',
     // ── 状態表示・お知らせ ──
     'カメラ接続中 — 顔を正面に向けてください': 'Camera connected — please face it directly',
@@ -1763,6 +1774,26 @@
     return null;
   }
 
+  // 計測前の案内（画面に出すだけ）：その時の頭の向きで判断し、1秒続いたら出す。直ったらすぐ消す。
+  // 記録用の判定（guideState：直近60秒の頭の向きで判断）とは別にしてあり、記録の値は変わらない
+  let shownGuide = null, guideCand = null, guideCandAt = 0;
+  function displayGuide(t, fw, cx, cy) {
+    let k = null;
+    const G = engine && engine.name === 'landmarker' ? GUIDE_LM : GUIDE;
+    if (brightness !== null && brightness < GUIDE.dark) k = 'dark';
+    else if (fw < GUIDE.farFace) k = 'tooFar';
+    else if (fw > GUIDE.nearFace) k = 'tooClose';
+    else if (pitchEma !== null && pitchEma > G.pitchHigh) k = 'camHigh';
+    else if (pitchEma !== null && pitchEma < G.pitchLow) k = 'camLow';
+    else if (yawEma !== null && Math.abs(yawEma) > G.yawMax) k = 'camSide';
+    else if (Math.abs(cx - .5) > GUIDE.edgeX || cy < GUIDE.edgeYlo || cy > GUIDE.edgeYhi) k = 'offCenter';
+    if (k !== guideCand) { guideCand = k; guideCandAt = t; }
+    if (k === null) shownGuide = null;
+    else if (k !== shownGuide && t - guideCandAt >= 1000) shownGuide = k;
+    else if (k !== shownGuide) shownGuide = null;
+    return shownGuide;
+  }
+
   // ── 目の開き具合の計算 ─────────────────────────────────────
   const EYE = { R: [159, 145, 33, 133, 160, 144], L: [386, 374, 362, 263, 387, 373] };   // 本人の右目 / 左目
   const p3 = (lm, i, w, h) => [lm[i].x * w, lm[i].y * h, (lm[i].z || 0) * w];
@@ -1942,9 +1973,14 @@
       quality.pitchMin = Math.min(quality.pitchMin, pitchEma); quality.pitchMax = Math.max(quality.pitchMax, pitchEma);
     }
 
-    if (g) setStatus('warn', GUIDE_MSG[g]);
-    else if (liveFps && liveFps < lowFpsLimit()) setStatus('warn', `処理が遅くなっています（${Math.round(liveFps)}fps）`);
-    else setStatus('ok', '顔を検出中 ✓');
+    // 画面の状態表示（記録には使わない）。計測中は、瞬きの仕方に影響しないよう、顔が見えないとき（上の分岐）以外は知らせない
+    if (measuring) setStatus('ok', '顔を検出中 ✓');
+    else {
+      const dg = displayGuide(t, fw, cx, cy);
+      if (dg) setStatus('warn', GUIDE_MSG[dg]);
+      else if (liveFps && liveFps < lowFpsLimit()) setStatus('warn', `処理が遅くなっています（${Math.round(liveFps)}fps）`);
+      else setStatus('ok', '顔を検出中 ✓');
+    }
 
     pushEarSample(t, e.avg);
     if (menuPanel.classList.contains('open')) updateEyeMeter(t);   // メニューを開いているときだけ描画（軽さのため）
@@ -2284,7 +2320,9 @@
   // ============================================================
   let activity = { category: '', genre: '', gameName: '', detail: '' };
   let actDraft = null;
-  $('act-genre').innerHTML = GENRES.map(g => `<option value="${g}">${g}</option>`).join('');
+  const genreOptions = list => [GENRE_UNSET].concat(list).map(g => `<option value="${g}">${g}</option>`).join('');
+  $('act-genre').innerHTML = genreOptions(GENRES);
+  $('act-work-genre').innerHTML = genreOptions(WORK_GENRES);
 
   // 前回の活動・眼鏡コンタクトの使用は、この端末のブラウザに保存され、ブラウザを閉じても引き継がれる
   const ACT_KEY = 'blink_last_activity_v1';
@@ -2304,6 +2342,7 @@
     if (!a.category) return '未選択';
     let s = a.category;
     if (a.category === 'ゲーム') { if (a.genre) s += ' / ' + a.genre; if (a.gameName) s += ' / ' + a.gameName; }
+    if (a.category === '作業' && a.genre) s += ' / ' + a.genre;
     if (a.category === 'その他' && a.detail) s += ' / ' + a.detail;
     return s;
   }
@@ -2315,6 +2354,7 @@
   function renderActDraft() {
     document.querySelectorAll('#act-cats .chip').forEach(c => c.classList.toggle('active', c.dataset.cat === actDraft.category));
     $('act-game-box').style.display  = actDraft.category === 'ゲーム' ? 'block' : 'none';
+    $('act-work-box').style.display  = actDraft.category === '作業' ? 'block' : 'none';
     $('act-other-box').style.display = actDraft.category === 'その他' ? 'block' : 'none';
     $('btn-act-ok').disabled = !actDraft.category;
   }
@@ -2328,8 +2368,9 @@
     $('act-id-box').style.display = auto ? 'block' : 'none';
     if (auto) $('act-pid').value = $('p-id').value.trim() || savedPid;
     actDraft = { ...activity };
-    if (!actDraft.genre) actDraft.genre = GENRES[0];
-    $('act-genre').value = actDraft.genre;
+    // ジャンルは最初「未回答」。前回の活動を引き継いだときは、そのジャンルのまま
+    $('act-genre').value = actDraft.category === 'ゲーム' && GENRES.includes(actDraft.genre) ? actDraft.genre : GENRE_UNSET;
+    $('act-work-genre').value = actDraft.category === '作業' && WORK_GENRES.includes(actDraft.genre) ? actDraft.genre : GENRE_UNSET;
     $('act-game').value = actDraft.gameName;
     $('act-detail').value = actDraft.detail;
     renderActDraft();
@@ -2338,6 +2379,7 @@
   function applyActivity() {
     const a = { category: actDraft.category, genre: '', gameName: '', detail: '' };
     if (a.category === 'ゲーム') { a.genre = $('act-genre').value; a.gameName = $('act-game').value.trim(); }
+    if (a.category === '作業') a.genre = $('act-work-genre').value;
     if (a.category === 'その他') a.detail = $('act-detail').value.trim();
     const changed = activityLabel(a) !== activityLabel(activity);
     activity = a;
