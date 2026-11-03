@@ -374,6 +374,7 @@
       font-family: var(--font-body); font-weight: 700; font-size: 15px; letter-spacing: .1em;
       color: var(--text); transition: color .2s; line-height: 1; text-align: center; padding: 0 8px;
     }
+    .btn-hint { font-size: 11px; color: var(--text-dim); line-height: 1.3; }
     .btn-num-label {
       font-family: var(--font-mono); font-size: 9px; color: var(--text-dim);
       letter-spacing: .15em;
@@ -684,7 +685,7 @@
   <button id="menu-btn" aria-label="メニュー">
     <span></span><span></span><span></span>
   </button>
-  <div id="app-title-label">瞬き検出アプリ ver4.11（研究用）</div>
+  <div id="app-title-label">瞬き検出アプリ ver4.12（研究用）</div>
 
   <!-- ── MENU PANEL ── -->
   <div id="menu-overlay"></div>
@@ -881,7 +882,7 @@
           <span class="btn-label" id="label-main">計測開始</span>
         </button>
         <button class="meas-btn" id="meas-btn-break" disabled>
-          <span class="btn-num-label">休憩</span>
+          <span class="btn-hint" id="hint-break">休憩・マッチング待機中などの長時間操作をしていない時に押してください</span>
           <span class="btn-label" id="label-break">休憩開始</span>
         </button>
       </div>
@@ -1018,7 +1019,7 @@
   // ============================================================
   //  BLINK STUDY — 瞬き計測システム（研究用）
   // ============================================================
-  const APP_VERSION     = 'ver4.11';
+  const APP_VERSION     = 'ver4.12';
   const LIB_VERSIONS    = { tasksVision: '0.10.35', faceLandmarkerModel: 'float16/1', faceMesh: '0.4.1633559619' };   // 読み込むMediaPipeのバージョン（固定）
   const CONSENT_VERSION = '2026-10';                         // 同意文を変えたら更新
 
@@ -1099,7 +1100,7 @@
     '5回瞬きして自動で設定': 'Set automatically with 5 blinks',
     // ── 共通・ヘッダー ──
     'BLINK STUDY — 瞬き計測システム': 'BLINK STUDY — Blink Measurement System',
-    '瞬き検出アプリ ver4.11（研究用）': 'Blink Detection App ver4.11 (Research)',
+    '瞬き検出アプリ ver4.12（研究用）': 'Blink Detection App ver4.12 (Research)',
     'メニュー': 'Menu',
     // ── メニュー ──
     '// 計測の設定': '// Measurement settings',
@@ -1184,6 +1185,7 @@
     '計測開始': 'Start', '計測終了': 'Stop',
     '顔認識を準備中…': 'Preparing face recognition…',
     '休憩': 'Break', '休憩開始': 'Start break', '休憩終了': 'End break',
+    '休憩・マッチング待ちのときに押してください': 'Press during breaks or while waiting for a match', 'ゲームや作業に戻ったら押してください': 'Press when you go back to your game or task',
     '離席': 'Away', '離席開始': 'Start away', '離席終了': 'End away',
     '🔔 計測開始までは、瞬きを検出すると音と光で知らせます（検出感度の確認用）': '🔔 Until the measurement starts, a sound and light signal each detected blink (to check the sensitivity)',
     // ── 最初の画面 ──
@@ -2626,7 +2628,10 @@
 
   // 休憩：1回目で開始、2回目で終了を記録（効果はJSONへの記録のみ）。離席は顔が写らない区間から自動で記録する
   // 休憩中は画面全体を明るい色にする（見た目だけ。記録には関係しない）
-  function setBreakTheme(on) { document.documentElement.classList.toggle('on-break', !!on); }
+  function setBreakTheme(on) {
+    document.documentElement.classList.toggle('on-break', !!on);
+    $('hint-break').textContent = on ? 'ゲームや作業に戻ったら押してください' : '休憩・マッチング待ちのときに押してください';
+  }
   function toggleEvent(kind) {
     if (!measuring) return;
     const log = evLog[kind], ui = EV_UI[kind], t = performance.now();
