@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>BLINK STUDY — 瞬き計測システム</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;700&family=Noto+Sans+JP:wght@300;400;700;900&display=swap" rel="stylesheet">
@@ -88,6 +88,8 @@
     }
     /* ブラウザが持っている「引っ張って更新」は止め、アプリの判断（計測中は効かない）でだけ再読み込みする */
     html, body { overscroll-behavior-y: none; }
+    /* スマホで勝手に拡大されないように：ダブルタップでの拡大を止め、入力欄は16px以上にする（iPhoneは16px未満の欄を触ると拡大する） */
+    html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     #ptr {
       position: fixed; top: 0; left: 50%; z-index: 1200; pointer-events: none;
       transform: translate(-50%, -60px); opacity: 0;
@@ -675,6 +677,10 @@
       #cam-col { max-width: none; }
       #panel-col { width: min(340px, 44vw); max-width: none; display: flex; flex-direction: column; justify-content: center; }
     }
+      /* スマホでは、文字を入れる欄を16px以上に（ほかの指定より後ろに置いて優先させる） */
+    @media (pointer: coarse), (max-width: 900px) {
+      .field input[type=text], .field input[type=number], .field textarea, .field select, #cam-select, #lang-select { font-size: 16px; }
+    }
   </style>
 </head>
 <body data-stage="welcome">
@@ -684,7 +690,7 @@
   <button id="menu-btn" aria-label="メニュー">
     <span></span><span></span><span></span>
   </button>
-  <div id="app-title-label">瞬き検出アプリ ver4.12（研究用）</div>
+  <div id="app-title-label">瞬き検出アプリ ver4.13（研究用）</div>
 
   <!-- ── MENU PANEL ── -->
   <div id="menu-overlay"></div>
@@ -873,7 +879,7 @@
 
     <!-- ── 計測パネル ── -->
     <div class="measure-section" id="measure-panel">
-      <div class="measure-section-title">// 計測<span class="admin-inline"> — 検出感度 <span id="meas-thr">0.50</span></span></div>
+      <div class="measure-section-title admin-only"><span>検出感度</span> <span id="meas-thr">0.50</span></div>
       <button id="btn-activity" class="activity-btn unset">活動：未選択 ▸ 選ぶ</button>
       <div class="measure-btns">
         <button class="meas-btn main" id="meas-btn-main" disabled>
@@ -1017,7 +1023,7 @@
   // ============================================================
   //  BLINK STUDY — 瞬き計測システム（研究用）
   // ============================================================
-  const APP_VERSION     = 'ver4.12';
+  const APP_VERSION     = 'ver4.13';
   const LIB_VERSIONS    = { tasksVision: '0.10.35', faceLandmarkerModel: 'float16/1', faceMesh: '0.4.1633559619' };   // 読み込むMediaPipeのバージョン（固定）
   const CONSENT_VERSION = '2026-10';                         // 同意文を変えたら更新
 
@@ -1098,7 +1104,7 @@
     '5回瞬きして自動で設定': 'Set automatically with 5 blinks',
     // ── 共通・ヘッダー ──
     'BLINK STUDY — 瞬き計測システム': 'BLINK STUDY — Blink Measurement System',
-    '瞬き検出アプリ ver4.12（研究用）': 'Blink Detection App ver4.12 (Research)',
+    '瞬き検出アプリ ver4.13（研究用）': 'Blink Detection App ver4.13 (Research)',
     'メニュー': 'Menu',
     // ── メニュー ──
     '// 計測の設定': '// Measurement settings',
@@ -1177,7 +1183,7 @@
     '初回は読み込みに時間がかかります（数十秒かかることがあります）。そのままお待ちください': 'The first load takes a while (it can take tens of seconds). Please wait.',
     '顔認識を読み込めませんでした': 'Could not load face recognition',
     // ── 計測画面 ──
-    '// 計測': '// Measurement',
+
     '— 検出感度': '— sensitivity',
     '活動：未選択 ▸ 選ぶ': 'Activity: not selected ▸ Choose',
     '計測開始': 'Start', '計測終了': 'Stop',
