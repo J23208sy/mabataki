@@ -74,9 +74,8 @@
     /* 休憩中：次に押す「休憩終了」をはっきり見せる（光らせず、ゆっくりした輪で知らせる）。計測終了ボタンは落ち着いた見た目にする */
     :root.on-break .meas-btn.measuring { background: rgba(154,90,18,.05); box-shadow: none; animation: none; }
     :root.on-break .meas-btn.measuring::before { opacity: .25; }
-    :root.on-break #meas-btn-break.measuring { background: #ffe8c4; border: 2px solid var(--accent); animation: break-ring 2.8s ease-in-out infinite; }
+    :root.on-break #meas-btn-break.measuring { background: #ffe8c4; border: 2px solid var(--accent); box-shadow: 0 0 0 4px rgba(154,90,18,.14); }
     :root.on-break #meas-btn-break.measuring .btn-label { color: #6b3f08; }
-    @keyframes break-ring { 0%, 100% { box-shadow: 0 0 0 0 rgba(154,90,18,.28); } 50% { box-shadow: 0 0 0 7px rgba(154,90,18,.06); } }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -350,13 +349,8 @@
       border-color: var(--accent);
       background: rgba(0,240,255,.06);
       box-shadow: 0 0 20px rgba(0,240,255,.2), inset 0 0 20px rgba(0,240,255,.04);
-      animation: measure-pulse 1.5s ease-in-out infinite;
       cursor: pointer;
       transform: none;
-    }
-    @keyframes measure-pulse {
-      0%,100% { box-shadow: 0 0 16px rgba(0,240,255,.2), inset 0 0 16px rgba(0,240,255,.04); }
-      50%      { box-shadow: 0 0 32px rgba(0,240,255,.4), inset 0 0 24px rgba(0,240,255,.08); }
     }
     .meas-btn.measuring::before { opacity: 1; }
     .meas-btn.measuring .btn-label { color: var(--accent); }
@@ -690,7 +684,7 @@
   <button id="menu-btn" aria-label="メニュー">
     <span></span><span></span><span></span>
   </button>
-  <div id="app-title-label">瞬き検出アプリ ver4.13（研究用）</div>
+  <div id="app-title-label">瞬き検出アプリ ver4.14（研究用）</div>
 
   <!-- ── MENU PANEL ── -->
   <div id="menu-overlay"></div>
@@ -1023,7 +1017,7 @@
   // ============================================================
   //  BLINK STUDY — 瞬き計測システム（研究用）
   // ============================================================
-  const APP_VERSION     = 'ver4.13';
+  const APP_VERSION     = 'ver4.14';
   const LIB_VERSIONS    = { tasksVision: '0.10.35', faceLandmarkerModel: 'float16/1', faceMesh: '0.4.1633559619' };   // 読み込むMediaPipeのバージョン（固定）
   const CONSENT_VERSION = '2026-10';                         // 同意文を変えたら更新
 
@@ -1104,7 +1098,7 @@
     '5回瞬きして自動で設定': 'Set automatically with 5 blinks',
     // ── 共通・ヘッダー ──
     'BLINK STUDY — 瞬き計測システム': 'BLINK STUDY — Blink Measurement System',
-    '瞬き検出アプリ ver4.13（研究用）': 'Blink Detection App ver4.13 (Research)',
+    '瞬き検出アプリ ver4.14（研究用）': 'Blink Detection App ver4.14 (Research)',
     'メニュー': 'Menu',
     // ── メニュー ──
     '// 計測の設定': '// Measurement settings',
@@ -1800,7 +1794,7 @@
   // ============================================================
   //  フレームごとの処理
   // ============================================================
-  let lastFrameAt = 0, prevFrameT = 0, canvasDirty = false;
+  let lastFrameAt = 0, prevFrameT = 0, canvasDirty = false, lastDotsAt = -1e9;
   let fpsWinStart = 0, fpsWinCount = 0, liveFps = 0;
   let brightness = null;
   let liveEar = null, liveFaceW = null;
@@ -1972,7 +1966,9 @@
     const w = video.videoWidth  || 640;
     const h = video.videoHeight || 480;
     if (overlay.width !== w || overlay.height !== h) { overlay.width = w; overlay.height = h; }
-    if (canvasDirty) { ctx.clearRect(0, 0, w, h); canvasDirty = false; }
+    // 目の点：計測中は1秒に10回だけ描き直す（表示だけの話で、瞬きの判定は毎フレーム行う）
+    const drawDots = showVideo && (!measuring || t - lastDotsAt >= 100);
+    if (canvasDirty && (drawDots || !showVideo || !results.landmarks)) { ctx.clearRect(0, 0, w, h); canvasDirty = false; }
     if (Math.abs(w / h - camAspect) > 0.01) { camAspect = w / h; fitCamera(); }
 
     if (!results.landmarks) {
@@ -2055,7 +2051,8 @@
     pushEarSample(t, e.avg);
     if (menuPanel.classList.contains('open')) updateEyeMeter(t);   // メニューを開いているときだけ描画（軽さのため）
 
-    if (showVideo) {
+    if (drawDots) {
+      lastDotsAt = t;
       [[159,145,33,133,160,144],[386,374,362,263,387,373]].forEach(idx => {
         idx.forEach(i => {
           ctx.beginPath();
@@ -2606,7 +2603,8 @@
 
     measTimer = setInterval(() => {
       const el = (performance.now() - measStartPerf) / 1000, s = Math.floor(el);
-      $('timer-main').textContent = p2(Math.floor(s / 60)) + ':' + p2(s % 60);
+      const tx = p2(Math.floor(s / 60)) + ':' + p2(s % 60);
+      if ($('timer-main').textContent !== tx) $('timer-main').textContent = tx;   // 変わったときだけ書き換える
       if (plannedSec && el >= plannedSec) { beep(); endMeasurement('scheduled'); }
     }, 500);
 
