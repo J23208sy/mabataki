@@ -516,6 +516,16 @@
     .notice-list b { color: var(--text); }
     .check { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-mid); cursor: pointer; }
     .check input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+    .sugg { margin-top: 4px; border: 1px solid var(--border2); border-radius: 8px; background: var(--surface); max-height: 260px; overflow-y: auto; }
+    .sugg[hidden] { display: none; }
+    .sugg-head { font-size: 11px; color: var(--text-dim); padding: 6px 10px 2px; font-family: var(--font-mono); }
+    .sugg-item { display: flex; align-items: baseline; gap: 8px; padding: 8px 10px; cursor: pointer; font-size: 14px; color: var(--text); border-top: 1px solid var(--border); }
+    .sugg-head + .sugg-item { border-top: 0; }
+    .sugg-item:hover, .sugg-item.active { background: var(--surface2); }
+    .sugg-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sugg-genre { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+    .sugg-badge { font-size: 10.5px; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 4px; white-space: nowrap; }
+    #act-game-note:empty { display: none; }
     .hint { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); line-height: 1.6; margin-top: 6px; }
     .tip-menu { color: var(--text-dim); }
     .tip-check { margin: 8px 0 0; color: var(--text-dim); }
@@ -684,7 +694,7 @@
   <button id="menu-btn" aria-label="メニュー">
     <span></span><span></span><span></span>
   </button>
-  <div id="app-title-label">瞬き検出アプリ ver4.14（研究用）</div>
+  <div id="app-title-label">瞬き検出アプリ ver4.16（研究用）</div>
 
   <!-- ── MENU PANEL ── -->
   <div id="menu-overlay"></div>
@@ -772,7 +782,7 @@
     <!-- 計測オプション -->
     <div class="menu-section">
       <div class="menu-section-title">計測オプション</div>
-      <label class="check"><input type="checkbox" id="opt-hide-preview"> 計測中はカメラ映像を隠す</label>
+      <label class="check"><input type="checkbox" id="opt-hide-preview" checked> 計測中はカメラ映像を隠す</label>
       <div class="hint">自分の顔が見えると、瞬きに影響することがあります。隠しても、検出の状態は表示されます。</div>
       <label class="check" style="margin-top:14px"><input type="checkbox" id="opt-blink-sound" checked> <span data-i18n-html="opt-sound">計測を始めるまでは、瞬きを検出したら<b>音</b>で知らせる</span></label>
       <label class="check" style="margin-top:8px"><input type="checkbox" id="opt-blink-light" checked> <span data-i18n-html="opt-light">計測を始めるまでは、瞬きを検出したら<b>光</b>で知らせる</span></label>
@@ -981,6 +991,8 @@
         <select id="act-genre"></select>
         <label for="act-game" style="margin-top:10px">ゲーム名（任意）</label>
         <input type="text" id="act-game" maxlength="60" autocomplete="off" placeholder="書かなくてもOK">
+        <div class="sugg" id="act-game-sugg" role="listbox" aria-label="ゲーム名の候補" hidden></div>
+        <div class="hint" id="act-game-note" aria-live="polite"></div>
       </div>
       <div class="field act-field" id="act-work-box" style="display:none">
         <label for="act-work-genre">作業の種類</label>
@@ -1017,7 +1029,7 @@
   // ============================================================
   //  BLINK STUDY — 瞬き計測システム（研究用）
   // ============================================================
-  const APP_VERSION     = 'ver4.14';
+  const APP_VERSION     = 'ver4.16';
   const LIB_VERSIONS    = { tasksVision: '0.10.35', faceLandmarkerModel: 'float16/1', faceMesh: '0.4.1633559619' };   // 読み込むMediaPipeのバージョン（固定）
   const CONSENT_VERSION = '2026-10';                         // 同意文を変えたら更新
 
@@ -1025,7 +1037,7 @@
   // 空のままなら、このPCにJSONをダウンロードします。
   const UPLOAD_URL        = 'https://script.google.com/macros/s/AKfycbyPab1181EJpo0zH67DQdFO8AjIz7-MF0VXDb9xSslqtxEbuYoCSYkxbx-hAFol9zVT/exec';   // Apps ScriptのウェブアプリURL（…/exec）
   const UPLOAD_TOKEN      = 'mabataki';   // Apps Script側のTOKENと同じ合言葉
-  const SERVER_VERSION    = '2026-10-31e';   // Code.gs の SERVER_VERSION と同じ値（違えば、受信側が古いまま）
+  const SERVER_VERSION    = '2026-11-10b';   // Code.gs の SERVER_VERSION と同じ値（違えば、受信側が古いまま）
   const UPLOAD_TIMEOUT_MS = 30000;   // 受信側が混んでいると書き込みに時間がかかるため長めに
   const UPLOAD_RETRIES    = 2;    // 送信の試行回数
 
@@ -1098,7 +1110,7 @@
     '5回瞬きして自動で設定': 'Set automatically with 5 blinks',
     // ── 共通・ヘッダー ──
     'BLINK STUDY — 瞬き計測システム': 'BLINK STUDY — Blink Measurement System',
-    '瞬き検出アプリ ver4.14（研究用）': 'Blink Detection App ver4.14 (Research)',
+    '瞬き検出アプリ ver4.16（研究用）': 'Blink Detection App ver4.16 (Research)',
     'メニュー': 'Menu',
     // ── メニュー ──
     '// 計測の設定': '// Measurement settings',
@@ -1224,6 +1236,7 @@
     '活動などに変更はありますか？': 'Has your activity or anything else changed?',
     '動画': 'Video', '映画': 'Movie', '作業': 'Work', 'ゲーム': 'Game', 'その他': 'Other',
     'ゲームのジャンル': 'Game genre', 'ゲーム名（任意）': 'Game title (optional)', '書かなくてもOK': 'Optional',
+    '候補': 'Suggestions', 'このジャンルでよく選ばれるゲーム': 'Popular in this genre', '前に入力されたゲーム': 'Entered before', '前に入力': 'Used before', 'ゲーム名の候補': 'Game title suggestions',
     '内容（詳しく）': 'Details', '内容を簡単に書いてください': 'Briefly describe what you are doing',
     '眼鏡・コンタクトの使用': 'Glasses / contact lenses',
     '未回答': 'No answer', 'なし（裸眼）': 'None', '眼鏡': 'Glasses', 'コンタクトレンズ': 'Contact lenses',
@@ -1274,6 +1287,7 @@
 
   // 文の中に数値などが入るもの
   const ENP = [
+    [/^ジャンルを「(.+)」にしました（違っていたら選び直してください）$/, m => `Genre set to "${EN[m[1]] || m[1]}" (change it if this is wrong)`],
     [/^(\d+)回 瞬きしてください$/, m => `Please blink ${m[1]} times`],
     [/^(\d+)回以上が続いたため、検出感度が高すぎるようです。([\d.]+) に下げてもう一度テストします$/, m => `${m[1]} or more blinks were detected twice in a row, so the sensitivity seems too high. Lowering it to ${m[2]} and testing again`],
     [/^(\d+)回以上が続きました。同じ検出感度 ([\d.]+) でもう一度テストします$/, m => `${m[1]} or more blinks were detected again. Testing again with the same sensitivity ${m[2]}`],
@@ -2443,9 +2457,141 @@
     renderActDraft();
     $('modal-activity').classList.add('show');
   }
+  // ============================================================
+  //  ゲーム名の候補（ジャンルと、入力中の文字から候補を出す）
+  //  ・有名なタイトル（分析ノート・ビューアのゲーム名の辞書と同じもの）
+  //  ・これまでの参加者が入力したゲーム名（受信側のスプレッドシート「ゲーム名の候補」から）
+  //  ・この端末で前に入力したゲーム名
+  //  ※ 入力の手助けだけで、記録の中身や瞬きの検出には関係しない
+  // ============================================================
+  const GAME_TITLES = [["スプラトゥーン3","FPS / TPS",["スプラトゥーン3","スプラ3","splatoon3","スプラトゥーン","スプラ","splatoon"]],["スプラトゥーン2","FPS / TPS",["スプラトゥーン2","スプラトゥーン","スプラ","splatoon"]],["VALORANT","FPS / TPS",["valorant","ヴァロラント","バロラント","ヴァロ","バロ","valo"]],["オーバーウォッチ","FPS / TPS",["オーバーウォッチ","overwatch","ow","ow2","overwatch2","オーバーウォッチ2"]],["コール オブ デューティ","FPS / TPS",["コールオブデューティ","callofduty","cod","codmobile","ウォーゾーン","warzone"]],["レインボーシックス シージ","FPS / TPS",["レインボーシックスシージ","rainbowsixsiege","r6s","r6","シージ","レインボーシックス"]],["カウンターストライク","FPS / TPS",["カウンターストライク","counterstrike","counterstrike2","cs2","csgo","cs"]],["Marvel Rivals","FPS / TPS",["marvelrivals","マーベルライバルズ","マベライ"]],["バトルフィールド","FPS / TPS",["バトルフィールド","battlefield","bf"]],["ストリノヴァ","FPS / TPS",["ストリノヴァ","strinova","ストリノバ"]],["Apex Legends","バトルロイヤル",["apexlegends","apex","エーペックス","エーペックスレジェンズ","エペ"]],["フォートナイト","バトルロイヤル",["フォートナイト","fortnite","フォトナ"]],["PUBG","バトルロイヤル",["pubg","パブジー","pubgmobile","ドン勝"]],["荒野行動","バトルロイヤル",["荒野行動","コウヤコウドウ","荒野","knivesout"]],["フォールガイズ","バトルロイヤル",["フォールガイズ","fallguys","フォルガイ"]],["League of Legends","MOBA",["leagueoflegends","lol","リーグオブレジェンド","ロル","wildrift","ワイルドリフト"]],["ポケモンユナイト","MOBA",["ポケモンユナイト","ユナイト","pokemonunite","ポケユナ"]],["Dota 2","MOBA",["dota2","dota","ドータ"]],["大乱闘スマッシュブラザーズ","格闘",["大乱闘スマッシュブラザーズ","スマブラ","スマッシュブラザーズ","smashbros","スマブラsp","スマブラspecial"]],["ストリートファイター","格闘",["ストリートファイター","スト6","ストファイ","streetfighter","sf6","ストリートファイター6"]],["鉄拳","格闘",["鉄拳","テッケン","tekken","鉄拳8"]],["モンハンワイルズ","アクション",["モンハンワイルズ","ワイルズ","mhwilds","モンスターハンター","モンハン","monsterhunter","mh"]],["モンハンライズ","アクション",["モンハンライズ","ライズ","サンブレイク","モンスターハンター","モンハン","monsterhunter","mh"]],["モンハンワールド","アクション",["モンハンワールド","mhw","アイスボーン","モンスターハンター","モンハン","monsterhunter","mh"]],["エルデンリング ナイトレイン","アクションRPG",["エルデンリングナイトレイン","ナイトレイン","nightreign","eldenring","エルデンリング","エルデン"]],["ダークソウル","アクションRPG",["ダークソウル","darksouls","ダクソ"]],["SEKIRO","アクション",["sekiro","セキロ","隻狼"]],["グランド・セフト・オート","オープンワールド",["グランドセフトオート","gta","gta5","gtav","gtaオンライン","グラセフ"]],["原神","オープンワールド",["原神","ゲンシン","genshin","genshinimpact"]],["崩壊：スターレイル","RPG",["崩壊スターレイル","スターレイル","スタレ","honkaistarrail","starrail"]],["ゼンレスゾーンゼロ","アクション",["ゼンレスゾーンゼロ","ゼンゼロ","zzz","zenlesszonezero"]],["鳴潮","オープンワールド",["鳴潮","メイチョウ","wutheringwaves"]],["ティアーズ オブ ザ キングダム","アドベンチャー",["ティアーズオブザキングダム","ティアキン","totk","ゼルダ","ゼルダノ伝説","zelda"]],["ブレス オブ ザ ワイルド","アドベンチャー",["ブレスオブザワイルド","ブレワイ","botw","ゼルダ","ゼルダノ伝説","zelda"]],["ポケモンSV","RPG",["ポケモンsv","スカーレットバイオレット","ポケモンスカーレット","ポケモンバイオレット","ポケットモンスター本編"]],["ポケモン剣盾","RPG",["ポケモン剣盾","ソードシールド","ポケットモンスター本編"]],["Pokémon LEGENDS","RPG",["pokémonlegends","ポケモンレジェンズ","ポケットモンスター本編"]],["Pokémon LEGENDS Z-A","RPG",["pokémonlegendsza","レジェンズza","ポケモンza","ポケットモンスター本編"]],["Pokémon LEGENDS アルセウス","RPG",["pokémonlegendsアルセウス","ポケモンアルセウス","ポケットモンスター本編"]],["ドラゴンクエスト","RPG",["ドラゴンクエスト","ドラクエ","dragonquest","dq"]],["ファイナルファンタジー","RPG",["ファイナルファンタジー","ff","finalfantasy","ff7","ff16"]],["ファイナルファンタジーXIV","RPG",["ファイナルファンタジーxiv","ff14","ffxiv","ファイナルファンタジー14"]],["ペルソナ","RPG",["ペルソナ","persona","p5r","ペルソナ5","メタファー"]],["ブルーアーカイブ","RPG",["ブルーアーカイブ","ブルアカ","bluearchive"]],["Fate/Grand Order","RPG",["fategrandorder","fgo","フェイトグランドオーダー"]],["アークナイツ","戦略・RTS",["アークナイツ","アクナイ","arknights"]],["ウマ娘","経営・育成",["ウマ娘","ウマムスメ","ウマ娘プリティーダービー","umamusume"]],["学園アイドルマスター","経営・育成",["学園アイドルマスター","学マス","ガクマス","gakumas"]],["マインクラフト","サンドボックス・建築",["マインクラフト","minecraft","マイクラ"]],["テラリア","サンドボックス・建築",["テラリア","terraria"]],["Roblox","サンドボックス・建築",["roblox","ロブロックス"]],["あつまれ どうぶつの森","シミュレーション",["アツマレドウブツノ森","アツ森","ドウブツノ森","ドウ森","animalcrossing"]],["スターデューバレー","シミュレーション",["スターデューバレー","stardewvalley","スタデュー"]],["シティーズ：スカイライン","シミュレーション",["シティーズスカイライン","citiesskylines"]],["ピクミン","戦略・RTS",["ピクミン","pikmin"]],["プロジェクトセカイ","音楽・リズム",["プロジェクトセカイ","プロセカ","pjsk"]],["太鼓の達人","音楽・リズム",["太鼓ノ達人","太鼓","タイコノタツジン"]],["maimai","音楽・リズム",["maimai","マイマイ"]],["osu!","音楽・リズム",["osu","オス"]],["アイドルマスター シンデレラガールズ スターライトステージ","音楽・リズム",["アイドルマスターシンデレラガールズスターライトステージ","デレステ","スターライトステージ"]],["バンドリ","音楽・リズム",["バンドリ","ガルパ","bangdream"]],["Beat Saber","音楽・リズム",["beatsaber","ビートセイバー"]],["テトリス99","パズル",["テトリス99","tetris99","テトリス","tetris"]],["ぷよぷよテトリス","パズル",["プヨプヨテトリス","プヨテト","テトリス","tetris"]],["ぷよぷよ","パズル",["プヨプヨ","プヨ","puyopuyo","プヨプヨeスポーツ"]],["スイカゲーム","パズル",["スイカゲーム","suikagame"]],["パズル&ドラゴンズ","パズル",["パズルドラゴンズ","パズドラ","パズルアンドドラゴンズ"]],["モンスターストライク","その他・不明",["モンスターストライク","モンスト","monsterstrike"]],["遊戯王 マスターデュエル","カード・ボードゲーム",["遊戯王マスターデュエル","マスターデュエル","マスデュエ","masterduel"]],["ポケポケ","カード・ボードゲーム",["ポケポケ","pokemontcgpocket"]],["シャドウバース","カード・ボードゲーム",["シャドウバース","シャドバ","shadowverse"]],["雀魂","カード・ボードゲーム",["雀魂","ジャンタマ","mahjongsoul"]],["桃太郎電鉄","カード・ボードゲーム",["桃太郎電鉄","桃鉄","モモテツ"]],["マリオカート","レース",["マリオカート","マリカ","mariokart","マリカー"]],["グランツーリスモ","レース",["グランツーリスモ","gt7","granturismo"]],["Rocket League","スポーツ",["rocketleague","ロケットリーグ","ロケリ"]],["EA SPORTS FC","スポーツ",["easportsfc","eafc","fifa","fc25","fc26"]],["eFootball","スポーツ",["efootball","イーフト","ウイイレ","ウイニングイレブン"]],["マリオパーティ","その他・不明",["マリオパーティ","マリパ"]],["Among Us","その他・不明",["amongus","アモングアス","アマングアス","アモアス"]],["Dead by Daylight","ホラー",["deadbydaylight","dbd","デッドバイデイライト"]],["Identity V 第五人格","ホラー",["identityv第五人格","第五人格","identityv","アイデンティティv"]],["8番出口","ホラー",["8番出口","8ban","exit8"]],["ポケモンGO","その他・不明",["ポケモンgo","ポケgo","pokemongo"]],["Escape from Tarkov","FPS / TPS",["escapefromtarkov","タルコフ","tarkov","エスケープフロムタルコフ"]],["Destiny 2","FPS / TPS",["destiny2","destiny","デスティニー","デスティニー2"]],["THE FINALS","FPS / TPS",["thefinals","ザファイナルズ","ファイナルズ"]],["HELLDIVERS 2","FPS / TPS",["helldivers2","helldivers","ヘルダイバー","ヘルダイバー2","ヘルダイバーズ2"]],["Delta Force","FPS / TPS",["deltaforce","デルタフォース"]],["Arena Breakout: Infinite","FPS / TPS",["arenabreakoutinfinite","arenabreakout","アリーナブレイクアウト","アリブレ"]],["Halo Infinite","FPS / TPS",["haloinfinite","ヘイローインフィニット","halo","ヘイロー"]],["ボーダーランズ4","FPS / TPS",["ボーダーランズ4","borderlands4","borderlands","ボーダーランズ","ボダラン"]],["ボーダーランズ3","FPS / TPS",["ボーダーランズ3","borderlands3","borderlands","ボーダーランズ","ボダラン"]],["Deadlock","MOBA",["deadlock","デッドロック"]],["Free Fire","バトルロイヤル",["freefire","フリーファイア","フリファ"]],["NARAKA: BLADEPOINT","バトルロイヤル",["narakabladepoint","naraka","ナラカ","ナラカブレードポイント"]],["Honor of Kings","MOBA",["honorofkings","オナーオブキングス","王者栄耀"]],["伝説対決 Arena of Valor","MOBA",["伝説対決arenaofvalor","伝説対決","arenaofvalor","aov"]],["ブロスタ","MOBA",["ブロスタ","brawlstars","ブロールスターズ"]],["デビル メイ クライ 5","アクション",["デビルメイクライ5","dmc5","devilmaycry","デビルメイクライ","dmc"]],["仁王2","アクションRPG",["仁王2","nioh2","仁王","ニオウ","nioh"]],["仁王3","アクションRPG",["仁王3","nioh3","仁王","ニオウ","nioh"]],["Ghost of Tsushima","アクション",["ghostoftsushima","ゴーストオブツシマ","ゴーツシ","ツシマ"]],["Ghost of Yōtei","アクション",["ghostofyōtei","ghostofyotei","ゴーストオブヨウテイ","ゴーストオブ羊蹄","ヨウテイ"]],["Stellar Blade","アクション",["stellarblade","ステラーブレイド","ステラブレイド"]],["ARMORED CORE VI","アクション",["armoredcorevi","armoredcore","armoredcore6","アーマードコア","アーマードコア6","アーマードコアvi","ac6"]],["黒神話：悟空","アクションRPG",["黒神話悟空","blackmythwukong","ブラックミスウーコン","黒神話"]],["Lies of P","アクションRPG",["liesofp","ライズオブピー","ライズオブp"]],["Bloodborne","アクションRPG",["bloodborne","ブラッドボーン","ブラボ"]],["Marvel's Spider-Man 2","アクション",["marvelsspiderman2","スパイダーマン2","spiderman2","spiderman","marvelsspiderman","スパイダーマン"]],["ゴッド・オブ・ウォー ラグナロク","アクション",["ゴッドオブウォーラグナロク","godofwarragnarok","godofwar","ゴッドオブウォー"]],["ドラゴンズドグマ 2","アクションRPG",["ドラゴンズドグマ2","dragonsdogma2","dragonsdogma","ドラゴンズドグマ","ドグマ"]],["メタルギア ソリッド Δ","アクション",["メタルギアソリッドδ","mgsδ","メタルギアソリッドデルタ","mgsdelta","metalgear","メタルギア","mgs","メタルギアソリッド"]],["キングダム ハーツIII","アクションRPG",["キングダムハーツiii","khiii","キングダムハーツ3","kingdomhearts","キングダムハーツ","kh"]],["ディアブロ IV","アクションRPG",["ディアブロiv","diablo4","diabloiv","ディアブロ4","diablo","ディアブロ"]],["Path of Exile 2","アクションRPG",["pathofexile2","poe2","pathofexile","poe","パスオブエグザイル"]],["ロストアーク","アクションRPG",["ロストアーク","lostark"]],["NieR:Automata","アクションRPG",["nierautomata","ニーアオートマタ","nier","ニーア"]],["サイバーパンク2077","オープンワールド",["サイバーパンク2077","cyberpunk","cyberpunk2077","サイバーパンク"]],["レッド・デッド・リデンプション","オープンワールド",["レッドデッドリデンプション","reddeadredemption","rdr2","rdr","レッドデッド","レッドデッドリデンプション2"]],["アサシン クリード シャドウズ","オープンワールド",["アサシンクリードシャドウズ","assassinscreedshadows","assassinscreed","アサシンクリード","アサクリ"]],["ホグワーツ・レガシー","オープンワールド",["ホグワーツレガシー","hogwartslegacy","ホグレガ"]],["パルワールド","サンドボックス・建築",["パルワールド","palworld","パルワ"]],["ファークライ6","オープンワールド",["ファークライ6","farcry6","farcry","ファークライ"]],["ウォッチドッグス","オープンワールド",["ウォッチドッグス","watchdogs"]],["龍が如く","アクション",["龍ガ如ク","リュウガゴトク","yakuza","likeadragon"]],["スターフィールド","オープンワールド",["スターフィールド","starfield"]],["スカイリム","オープンワールド",["スカイリム","skyrim","エルダースクロールズ","elderscrolls"]],["バルダーズ・ゲート3","RPG",["バルダーズゲート3","baldursgate3","baldursgate","バルダーズゲート","bg3"]],["オクトパストラベラーII","RPG",["オクトパストラベラーii","オクトパストラベラー2","オクトラ2","octopathtraveler","オクトパストラベラー","オクトラ"]],["Clair Obscur: Expedition 33","RPG",["clairobscurexpedition33","clairobscur","expedition33","エクスペディション33","クレールオブスキュール","光ト影33号遠征隊"]],["UNDERTALE","RPG",["undertale","アンダーテール"]],["DELTARUNE","RPG",["deltarune","デルタルーン"]],["ゼノブレイド3","RPG",["ゼノブレイド3","ゼノブレ3","xenoblade","ゼノブレイド","ゼノブレ"]],["グランブルーファンタジー リリンク","RPG",["グランブルーファンタジーリリンク","リリンク","relink","グランブルーファンタジー","グラブル","granbluefantasy"]],["テイルズ オブ アライズ","RPG",["テイルズオブアライズ","アライズ","テイルズ","テイルズオブ","talesof"]],["龍が如く7","RPG",["龍ガ如ク7","龍ガ如ク8","likeadragoninfinitewealth"]],["Detroit: Become Human","アドベンチャー",["detroitbecomehuman","detroit","デトロイト","デトロイトビカムヒューマン"]],["It Takes Two","アドベンチャー",["ittakestwo","イットテイクスツー"]],["Split Fiction","アドベンチャー",["splitfiction","スプリットフィクション"]],["The Last of Us","アドベンチャー",["thelastofus","ラストオブアス","ラスアス","tlou"]],["デス・ストランディング2","アドベンチャー",["デスストランディング2","デススト2","deathstranding","デスストランディング","デススト"]],["Outer Wilds","アドベンチャー",["outerwilds","アウターワイルズ"]],["ダンガンロンパ","アドベンチャー",["ダンガンロンパ","ダンロン","danganronpa"]],["ライフ イズ ストレンジ","アドベンチャー",["ライフイズストレンジ","lifeisstrange","ライスト"]],["アンチャーテッド","アドベンチャー",["アンチャーテッド","uncharted"]],["ザ・シムズ4","シミュレーション",["ザシムズ4","sims4","シムズ4","thesims","sims","シムズ","ザシムズ"]],["ユーロトラックシミュレーター2","シミュレーション",["ユーロトラックシミュレーター2","eurotrucksimulator","eurotrucksimulator2","ets2","ユーロトラック","ユーロトラックシミュレーター"]],["Microsoft Flight Simulator","シミュレーション",["microsoftflightsimulator","flightsimulator","msfs","フライトシミュレーター","フラシム"]],["Factorio","シミュレーション",["factorio","ファクトリオ"]],["Satisfactory","シミュレーション",["satisfactory","サティスファクトリー"]],["RimWorld","シミュレーション",["rimworld","リムワールド"]],["スーパーマーケットシミュレーター","シミュレーション",["スーパーマーケットシミュレーター","supermarketsimulator","スーパーシミュ"]],["トモダチコレクション","シミュレーション",["トモダチコレクション","トモコレ"]],["シヴィライゼーション VI","戦略・RTS",["シヴィライゼーションvi","civ6","civilization6","civilization","シヴィライゼーション","シビライゼーション","civ"]],["シヴィライゼーション VII","戦略・RTS",["シヴィライゼーションvii","civ7","civilization7","civilization","シヴィライゼーション","シビライゼーション","civ"]],["スタークラフト","戦略・RTS",["スタークラフト","starcraft","starcraft2","スタクラ","sc2"]],["エイジ オブ エンパイア II","戦略・RTS",["エイジオブエンパイアii","aoe2","ageofempires","エイジオブエンパイア","aoe"]],["エイジ オブ エンパイア IV","戦略・RTS",["エイジオブエンパイアiv","aoe4","ageofempires","エイジオブエンパイア","aoe"]],["ハーツ オブ アイアン IV","戦略・RTS",["ハーツオブアイアンiv","heartsofiron","heartsofiron4","hoi4","ハーツオブアイアン","ハーツオブアイアン4"]],["チームファイト タクティクス","戦略・RTS",["チームファイトタクティクス","teamfighttactics","tft"]],["クラッシュ・ロワイヤル","戦略・RTS",["クラッシュロワイヤル","clashroyale","クラロワ"]],["信長の野望","戦略・RTS",["信長ノ野望","ノブヤボ"]],["ファイアーエムブレム エンゲージ","戦略・RTS",["ファイアーエムブレムエンゲージ","feエンゲージ","fireemblem","ファイアーエムブレム","ファイアーエンブレム"]],["ファイアーエムブレム 風花雪月","戦略・RTS",["ファイアーエムブレム風花雪月","風花雪月","fireemblem","ファイアーエムブレム","ファイアーエンブレム"]],["トータルウォー","戦略・RTS",["トータルウォー","totalwar"]],["Stellaris","戦略・RTS",["stellaris","ステラリス"]],["Portal","パズル",["portal","portal2","ポータル","ポータル2"]],["Baba Is You","パズル",["babaisyou","ババイズユー"]],["キャンディークラッシュ","パズル",["キャンディークラッシュ","candycrush","キャンクラ"]],["ツムツム","パズル",["ツムツム","ディズニーツムツム","tsumtsum"]],["ピクロス","パズル",["ピクロス","picross"]],["Arcaea","音楽・リズム",["arcaea","アーケア"]],["CHUNITHM","音楽・リズム",["chunithm","チュウニズム","チュウニ"]],["リズム天国","音楽・リズム",["リズム天国","rhythmheaven"]],["ヒプノシスマイク","音楽・リズム",["ヒプノシスマイク","ヒプマイ","ヒプドリ"]],["NBA 2K25","スポーツ",["nba2k25","nba2k","nba","2k"]],["NBA 2K26","スポーツ",["nba2k26","nba2k","nba","2k"]],["実況パワフルプロ野球","スポーツ",["実況パワフルプロ野球","パワプロ","powerpros"]],["プロ野球スピリッツ","スポーツ",["プロ野球スピリッツ","プロスピ","プロスピa"]],["Nintendo Switch Sports","スポーツ",["nintendoswitchsports","switchsports","スイッチスポーツ"]],["みんなのGOLF","スポーツ",["ミンナノgolf","ミンナノゴルフ","ミンゴル"]],["Forza Horizon 5","レース",["forzahorizon5","fh5","forza","forzahorizon","フォルツァ","フォルツァホライゾン"]],["F1 25","レース",["f125","f1"]],["F1 24","レース",["f124","f1"]],["ニード・フォー・スピード","レース",["ニードフォースピード","needforspeed","nfs"]],["GUILTY GEAR","格闘",["guiltygear","ギルティギア","ギルティ","ggst","ストライヴ"]],["グランブルーファンタジーヴァーサス","格闘",["グランブルーファンタジーヴァーサス","グラブルvs","gbvsr"]],["餓狼伝説","格闘",["餓狼伝説","ガロウ","fatalfury","cityofthewolves"]],["ドラゴンボール","格闘",["ドラゴンボール","ドラゴンボールスパーキングゼロ","スパーキングゼロ","sparkingzero","ドラゴンボールファイターズ"]],["ブレイブルー","格闘",["ブレイブルー","blazblue"]],["モータルコンバット","格闘",["モータルコンバット","mortalkombat","mk1"]],["Phasmophobia","ホラー",["phasmophobia","ファズモフォビア","ファズモ"]],["Lethal Company","ホラー",["lethalcompany","リーサルカンパニー","リーサル"]],["R.E.P.O.","ホラー",["repo","リポ","レポ"]],["Content Warning","ホラー",["contentwarning","コンテンツワーニング"]],["バイオハザード RE:4","ホラー",["バイオハザードre4","re4","バイオre4","バイオハザード","residentevil"]],["バイオハザード ヴィレッジ","ホラー",["バイオハザードヴィレッジ","ヴィレッジ","バイオハザード","residentevil"]],["バイオハザード レクイエム","ホラー",["バイオハザードレクイエム","レクイエム","バイオハザード","residentevil"]],["SILENT HILL f","ホラー",["silenthillf","サイレントヒルf","silenthill","サイレントヒル"]],["SILENT HILL 2","ホラー",["silenthill2","サイレントヒル2","silenthill","サイレントヒル"]],["Five Nights at Freddy's","ホラー",["fivenightsatfreddys","fnaf","フレディ","ファイブナイツアットフレディーズ"]],["リトルナイトメア","ホラー",["リトルナイトメア","littlenightmares","リトルナイトメア2","リトルナイトメア3"]],["Valheim","サンドボックス・建築",["valheim","ヴァルヘイム","バルヘイム"]],["Rust","サンドボックス・建築",["rust"]],["ARK: Survival Ascended","サンドボックス・建築",["arksurvivalascended","アークサバイバルアセンデッド","arksurvivalevolved","アークサバイバルエボルブド"]],["7 Days to Die","サンドボックス・建築",["7daystodie","セブンデイズトゥダイ","7dtd","7デイズ"]],["Don't Starve","サンドボックス・建築",["dontstarve","dontstarvetogether","ドントスターブ","ドンスタ"]],["Garry's Mod","サンドボックス・建築",["garrysmod","gmod","ギャリーズモッド"]],["ハースストーン","カード・ボードゲーム",["ハースストーン","hearthstone","ハース"]],["MTGアリーナ","カード・ボードゲーム",["mtgアリーナ","mtgarena","mtg","マジックザギャザリング"]],["デュエル・マスターズ プレイス","カード・ボードゲーム",["デュエルマスターズプレイス","デュエプレ","デュエルマスターズ","デュエマ"]],["天鳳","カード・ボードゲーム",["天鳳","テンホウ","tenhou"]],["麻雀一番街","カード・ボードゲーム",["麻雀一番街","一番街"]],["将棋ウォーズ","カード・ボードゲーム",["将棋ウォーズ","将棋","ショウギ"]],["チェス","カード・ボードゲーム",["チェス","chess","chesscom","チェスドットコム"]],["UNO","カード・ボードゲーム",["uno","ウノ"]],["STEINS;GATE","ビジュアルノベル",["steins;gate","steinsgate","シュタインズゲート","シュタゲ"]],["ドキドキ文芸部！","ビジュアルノベル",["ドキドキ文芸部","ddlc","dokidokiliteratureclub"]],["ひぐらしのなく頃に","ビジュアルノベル",["ヒグラシノナク頃ニ","ヒグラシ"]],["Hades II","ローグライク",["hadesii","hades2","ハデス2","hades","ハデス"]],["Slay the Spire 2","ローグライク",["slaythespire2","スレスパ2","slaythespire","スレイザスパイア","スレスパ"]],["Balatro","ローグライク",["balatro","バラトロ"]],["Vampire Survivors","ローグライク",["vampiresurvivors","ヴァンパイアサバイバーズ","ヴァンサバ"]],["Dead Cells","ローグライク",["deadcells","デッドセルズ"]],["The Binding of Isaac","ローグライク",["thebindingofisaac","bindingofisaac","isaac","アイザック"]],["Risk of Rain 2","ローグライク",["riskofrain2","riskofrain","リスクオブレイン","ror2"]],["Enter the Gungeon","ローグライク",["enterthegungeon","エンターザガンジョン","ガンジョン"]],["Brotato","ローグライク",["brotato","ブロテイト"]],["不思議のダンジョン","ローグライク",["不思議ノダンジョン","シレン","風来ノシレン","ポケダン"]],["スーパーマリオブラザーズ ワンダー","プラットフォーマー",["スーパーマリオブラザーズワンダー","マリオワンダー","スーパーマリオ","supermario"]],["スーパーマリオ オデッセイ","プラットフォーマー",["スーパーマリオオデッセイ","マリオオデッセイ","スーパーマリオ","supermario"]],["スーパーマリオメーカー 2","プラットフォーマー",["スーパーマリオメーカー2","マリオメーカー2","マリメ2","スーパーマリオ","supermario"]],["星のカービィ ディスカバリー","プラットフォーマー",["星ノカービィディスカバリー","カービィディスカバリー","カービィ","星ノカービィ","kirby"]],["ドンキーコング バナンザ","プラットフォーマー",["ドンキーコングバナンザ","バナンザ","ドンキーコング","ドンキー","donkeykong"]],["Hollow Knight: Silksong","プラットフォーマー",["hollowknightsilksong","シルクソング","silksong","hollowknight","ホロウナイト"]],["Celeste","プラットフォーマー",["celeste","セレステ"]],["Cuphead","プラットフォーマー",["cuphead","カップヘッド"]],["Getting Over It","プラットフォーマー",["gettingoverit","壺オジ","ツボオジ","ゲッティングオーバーイット"]],["東方Project","シューティング（STG）",["東方project","東方","トウホウ","touhou"]],["Overcooked","その他・不明",["overcooked","オーバークック","オバクク"]],["PICO PARK","その他・不明",["picopark","ピコパーク"]],["GeoGuessr","その他・不明",["geoguessr","ジオゲッサー","ジオゲ"]],["Goose Goose Duck","その他・不明",["goosegooseduck","グースグースダック","グースダック"]],["Gartic Phone","その他・不明",["garticphone","ガーティックフォン","オ絵描キ伝言ゲーム"]],["Left 4 Dead 2","FPS / TPS",["left4dead2","left4dead","l4d2","レフト4デッド","レフトフォーデッド"]],["Team Fortress 2","FPS / TPS",["teamfortress2","tf2","チームフォートレス","チームフォートレス2"]],["タイタンフォール2","FPS / TPS",["タイタンフォール2","titanfall","titanfall2","タイタンフォール"]],["DOOM Eternal","FPS / TPS",["doometernal","ドゥームエターナル","doom","ドゥーム"]],["DOOM: The Dark Ages","FPS / TPS",["doomthedarkages","doom","ドゥーム"]],["Ready or Not","FPS / TPS",["readyornot","レディオアノット"]],["Warframe","FPS / TPS",["warframe","ウォーフレーム"]],["PAYDAY","FPS / TPS",["payday","payday2","payday3","ペイデイ"]],["Deep Rock Galactic","FPS / TPS",["deeprockgalactic","drg","ディープロックギャラクティック","ディプロ"]],["勝利の女神：NIKKE","FPS / TPS",["勝利ノ女神nikke","nikke","ニケ","勝利ノ女神"]],["Farlight 84","バトルロイヤル",["farlight84","ファーライト84"]],["Stumble Guys","バトルロイヤル",["stumbleguys","スタンブルガイズ"]],["ザ・キング・オブ・ファイターズ","格闘",["ザキングオブファイターズ","kof","キングオブファイターズ","kof15","kofxv"]],["ソウルキャリバー","格闘",["ソウルキャリバー","soulcalibur","ソウルキャリバー6"]],["Brawlhalla","格闘",["brawlhalla","ブロウルハラ"]],["MultiVersus","格闘",["multiversus","マルチバーサス"]],["ベヨネッタ","アクション",["ベヨネッタ","bayonetta"]],["ロックマン","アクション",["ロックマン","megaman","ロックマンエグゼ"]],["Hi-Fi RUSH","アクション",["hifirush","ハイファイラッシュ"]],["Sifu","アクション",["sifu","シーフー"]],["Star Wars ジェダイ","アクション",["starwarsジェダイ","starwarsjedi","ジェダイ","スターウォーズジェダイ"]],["ウォーロン","アクションRPG",["ウォーロン","wolong","wolongfallendynasty"]],["CODE VEIN","アクションRPG",["codevein","コードヴェイン"]],["ソードアート・オンライン","アクションRPG",["ソードアートオンライン","swordartonline"]],["白猫プロジェクト","アクションRPG",["白猫プロジェクト","白猫"]],["ファンタシースターオンライン2 ニュージェネシス","アクションRPG",["ファンタシースターオンライン2ニュージェネシス","pso2","pso2ngs","ファンタシースターオンライン2","ファンタシースター"]],["BLUE PROTOCOL: Star Resonance","アクションRPG",["blueprotocolstarresonance","ブループロトコル","ブルプロ","blueprotocol","スターレゾナンス"]],["崩壊3rd","アクション",["崩壊3rd","崩壊3"]],["ドラゴンボール ドッカンバトル","RPG",["ドラゴンボールドッカンバトル","ドッカンバトル","ドカバト"]],["ウィッチャー3","オープンワールド",["ウィッチャー3","witcher","witcher3","ウィッチャー"]],["Horizon Zero Dawn","オープンワールド",["horizonzerodawn","ホライゾンゼロドーン","horizon"]],["Horizon Forbidden West","オープンワールド",["horizonforbiddenwest","ホライゾンフォービドゥンウェスト","horizon"]],["Days Gone","オープンワールド",["daysgone","デイズゴーン"]],["幻塔","オープンワールド",["幻塔","toweroffantasy","タワーオブファンタジー"]],["インフィニティニキ","オープンワールド",["インフィニティニキ","infinitynikki"]],["プリンセスコネクト！Re:Dive","RPG",["プリンセスコネクトredive","プリコネ","プリンセスコネクト","プリコネr"]],["ロマンシング サガ","RPG",["ロマンシングサガ","ロマサガ","ロマサガrs"]],["ヘブンバーンズレッド","RPG",["ヘブンバーンズレッド","ヘブバン"]],["刀剣乱舞","RPG",["刀剣乱舞","トウラブ"]],["ペーパーマリオ","RPG",["ペーパーマリオ","papermario"]],["マリオ＆ルイージRPG","RPG",["マリオルイージrpg","マリオルイージ","マリルイ","マリオアンドルイージ"]],["逆転裁判","アドベンチャー",["逆転裁判","ギャクテンサイバン","aceattorney"]],["Stray","アドベンチャー",["stray","ストレイ"]],["LIMBO","アドベンチャー",["limbo","リンボ"]],["AI: ソムニウムファイル","アドベンチャー",["aiソムニウムファイル","ソムニウムファイル","ソムニウム"]],["レイトン教授","パズル",["レイトン教授","レイトン","laytons"]],["Until Dawn","ホラー",["untildawn","アンティルドーン"]],["Alan Wake 2","ホラー",["alanwake2","alanwake","アランウェイク"]],["Dead Space","ホラー",["deadspace","デッドスペース"]],["Outlast","ホラー",["outlast","アウトラスト"]],["Buckshot Roulette","ホラー",["buckshotroulette","バックショットルーレット"]],["Core Keeper","サンドボックス・建築",["corekeeper","コアキーパー"]],["Enshrouded","サンドボックス・建築",["enshrouded","エンシュラウデッド"]],["Subnautica","サンドボックス・建築",["subnautica","サブノーティカ"]],["Sons Of The Forest","サンドボックス・建築",["sonsoftheforest","サンズオブザフォレスト","theforest","ザフォレスト"]],["Grounded","サンドボックス・建築",["grounded","グラウンデッド"]],["No Man's Sky","サンドボックス・建築",["nomanssky","ノーマンズスカイ"]],["ドラゴンクエストビルダーズ","サンドボックス・建築",["ドラゴンクエストビルダーズ","ドラクエビルダーズ","dqb"]],["Planet Coaster","シミュレーション",["planetcoaster","プラネットコースター"]],["Planet Zoo","シミュレーション",["planetzoo","プラネットズー"]],["Two Point Hospital","経営・育成",["twopointhospital","ツーポイントホスピタル"]],["Football Manager","経営・育成",["footballmanager","フットボールマネージャー"]],["ウイニングポスト","経営・育成",["ウイニングポスト","ウイポ"]],["ダービースタリオン","経営・育成",["ダービースタリオン","ダビスタ"]],["Frostpunk","戦略・RTS",["frostpunk","フロストパンク"]],["クルセイダーキングス","戦略・RTS",["クルセイダーキングス","crusaderkings","ck3"]],["ユーロパ・ユニバーサリス","戦略・RTS",["ユーロパユニバーサリス","europauniversalis","eu4"]],["プラントvsゾンビ","戦略・RTS",["プラントvsゾンビ","plantsvszombies","pvz","プラゾン"]],["Bloons TD 6","戦略・RTS",["bloonstd6","bloons","btd6","ブルーンズ"]],["クラッシュ・オブ・クラン","戦略・RTS",["クラッシュオブクラン","clashofclans","クラクラ"]],["Into the Breach","戦略・RTS",["intothebreach","イントゥザブリーチ"]],["XCOM","戦略・RTS",["xcom","xcom2"]],["艦隊これくしょん","戦略・RTS",["艦隊コレクション","艦コレ"]],["ドクターマリオ","パズル",["ドクターマリオ","drmario"]],["The Witness","パズル",["thewitness","ザウィットネス"]],["モニュメントバレー","パズル",["モニュメントバレー","monumentvalley"]],["数独","パズル",["数独","ナンプレ","sudoku"]],["Wordle","パズル",["wordle","ワードル"]],["Block Blast!","パズル",["blockblast","ブロックブラスト"]],["ロイヤルマッチ","パズル",["ロイヤルマッチ","royalmatch"]],["ホームスケイプ","パズル",["ホームスケイプ","homescapes"]],["2048","パズル",["2048"]],["Muse Dash","音楽・リズム",["musedash","ミューズダッシュ"]],["Cytus II","音楽・リズム",["cytusii","cytus","cytus2","サイタス"]],["DEEMO","音楽・リズム",["deemo","ディーモ"]],["ポップンミュージック","音楽・リズム",["ポップンミュージック","ポップン","popn"]],["beatmania IIDX","音楽・リズム",["beatmaniaiidx","beatmania","iidx","ビートマニア","弐寺"]],["SOUND VOLTEX","音楽・リズム",["soundvoltex","sdvx","ボルテ"]],["ダンスダンスレボリューション","音楽・リズム",["ダンスダンスレボリューション","ddr","ダンレボ"]],["ジャストダンス","音楽・リズム",["ジャストダンス","justdance"]],["ツイステッドワンダーランド","音楽・リズム",["ツイステッドワンダーランド","ツイステ"]],["あんさんぶるスターズ！！","音楽・リズム",["アンサンブルスターズ","アンスタ"]],["ラブライブ！","音楽・リズム",["ラブライブ","スクフェス","スクスタ","リンクラ"]],["アイドリッシュセブン","音楽・リズム",["アイドリッシュセブン","アイナナ"]],["マリオテニス","スポーツ",["マリオテニス","mariotennis"]],["Wii Sports","スポーツ",["wiisports","wiiスポーツ"]],["リングフィット アドベンチャー","スポーツ",["リングフィットアドベンチャー","リングフィット","ringfit"]],["Fit Boxing","スポーツ",["fitboxing","フィットボクシング"]],["アセットコルサ","レース",["アセットコルサ","assettocorsa"]],["iRacing","レース",["iracing","アイレーシング"]],["Trackmania","レース",["trackmania","トラックマニア"]],["MARVEL SNAP","カード・ボードゲーム",["marvelsnap","マーベルスナップ"]],["ポケモンカードゲーム Live","カード・ボードゲーム",["ポケモンカードゲームlive","ポケカライブ","pokemontcglive"]],["遊戯王 デュエルリンクス","カード・ボードゲーム",["遊戯王デュエルリンクス","デュエルリンクス","duellinks"]],["世界のアソビ大全51","カード・ボードゲーム",["世界ノアソビ大全51","アソビ大全","世界ノアソビ大全","アソビ大全51"]],["オセロ","カード・ボードゲーム",["オセロ","リバーシ","othello"]],["囲碁","カード・ボードゲーム",["囲碁","イゴ"]],["Tabletop Simulator","カード・ボードゲーム",["tabletopsimulator","テーブルトップシミュレーター"]],["人生ゲーム","カード・ボードゲーム",["人生ゲーム"]],["Fate/stay night","ビジュアルノベル",["fatestaynight","フェイトステイナイト"]],["CLANNAD","ビジュアルノベル",["clannad","クラナド"]],["Spelunky","ローグライク",["spelunky","spelunky2","スペランキー"]],["Darkest Dungeon","ローグライク",["darkestdungeon","ダーケストダンジョン"]],["FTL","ローグライク",["ftl","fasterthanlight"]],["Rogue Legacy","ローグライク",["roguelegacy","ローグレガシー"]],["Cult of the Lamb","ローグライク",["cultofthelamb","カルトオブザラム"]],["Noita","ローグライク",["noita","ノイタ"]],["Monster Train","ローグライク",["monstertrain","モンスタートレイン"]],["Inscryption","ローグライク",["inscryption","インスクリプション"]],["アストロボット","プラットフォーマー",["アストロボット","astrobot"]],["ソニックフロンティア","プラットフォーマー",["ソニックフロンティア","sonic","ソニック"]],["メトロイド ドレッド","プラットフォーマー",["メトロイドドレッド","metroid","メトロイド"]],["ショベルナイト","プラットフォーマー",["ショベルナイト","shovelknight"]],["クラッシュ・バンディクー","プラットフォーマー",["クラッシュバンディクー","crashbandicoot"]],["ヨッシー","プラットフォーマー",["ヨッシー","yoshi"]],["オリとくらやみの森","プラットフォーマー",["オリトクラヤミノ森","oriandtheblindforest","oriandthewillofthewisps","オリトウィスプノ意志"]],["Only Up!","プラットフォーマー",["onlyup","オンリーアップ"]],["Jump King","プラットフォーマー",["jumpking","ジャンプキング"]],["Chained Together","プラットフォーマー",["chainedtogether","チェインドトゥギャザー"]],["グラディウス","シューティング（STG）",["グラディウス","gradius"]],["怒首領蜂","シューティング（STG）",["怒首領蜂","ドドンパチ"]],["斑鳩","シューティング（STG）",["斑鳩","ikaruga"]],["R-TYPE","シューティング（STG）",["rtype","アールタイプ"]],["アズールレーン","シューティング（STG）",["アズールレーン","アズレン","azurlane"]],["Jackbox Party Pack","その他・不明",["jackboxpartypack","jackbox","ジャックボックス"]],["Pummel Party","その他・不明",["pummelparty","パンメルパーティー"]],["Human: Fall Flat","その他・不明",["humanfallflat","ヒューマンフォールフラット"]],["Gang Beasts","その他・不明",["gangbeasts","ギャングビースト"]],["Party Animals","その他・不明",["partyanimals","パーティーアニマルズ"]],["ドラゴンクエストウォーク","その他・不明",["ドラゴンクエストウォーク","ドラクエウォーク","dqウォーク"]]];
+  const TITLES_KEY = 'blink_titles_v1', GAME_HIST_KEY = 'blink_game_hist_v1';
+  const SUGG_MAX = 8;
+  const titleKey = s => String(s == null ? '' : s).normalize('NFKC').toLowerCase().trim()
+    .replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60))
+    .replace(/[\s・:：\-‐－—―_.,、。!！?？'"’”()（）\[\]【】「」『』~〜/／&＆+＋☆★♪]/g, '');
+  const titleIndex = new Map();   // 照合用の文字 → 辞書のタイトル
+  GAME_TITLES.forEach(t => t[2].forEach(k => { if (!titleIndex.has(k)) titleIndex.set(k, t); }));
+  let pastTitles = [];            // 受信側からもらった [名前, ジャンル, 回数]
+  try { const c = store.get(TITLES_KEY, null); if (c && Array.isArray(c.list)) pastTitles = c.list; } catch (e) { }
+  let histAddedNow = [];          // この計測で履歴に足した名前（「この端末に保存しない」を選んだら消す）
+  async function fetchTitles() {
+    if (!UPLOAD_URL || !navigator.onLine) return;
+    const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 8000);
+    try {
+      const res = await fetch(UPLOAD_URL + (UPLOAD_URL.includes('?') ? '&' : '?') + 'titles=1&token=' + encodeURIComponent(UPLOAD_TOKEN), { signal: ctrl.signal });
+      const j = JSON.parse(await res.text());
+      if (j && j.ok && Array.isArray(j.titles)) { pastTitles = j.titles.filter(x => Array.isArray(x) && x[0]); store.set(TITLES_KEY, { at: new Date().toISOString(), list: pastTitles }); }
+    } catch (e) { /* 受信側が古い・つながらないときは、前にもらった候補か、辞書だけを使う */ }
+    finally { clearTimeout(timer); }
+  }
+  function addGameHistory(name, genre) {
+    name = String(name || '').trim(); if (!name) return;
+    const k = titleKey(name), list = store.get(GAME_HIST_KEY, []).filter(x => x && x.name);
+    const i = list.findIndex(x => titleKey(x.name) === k);
+    if (i >= 0) { list[i].n = (list[i].n || 1) + 1; list[i].at = new Date().toISOString(); if (genre && genre !== GENRE_UNSET) list[i].genre = genre; }
+    else list.push({ name, genre: genre && genre !== GENRE_UNSET ? genre : '', n: 1, at: new Date().toISOString() });
+    list.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    store.set(GAME_HIST_KEY, list.slice(0, 30));
+    histAddedNow.push(k);
+  }
+  function forgetGameHistoryNow() {
+    if (!histAddedNow.length) return;
+    const list = store.get(GAME_HIST_KEY, []);
+    for (const k of histAddedNow) { const i = list.findIndex(x => titleKey(x.name) === k); if (i >= 0 && --list[i].n <= 0) list.splice(i, 1); }
+    store.set(GAME_HIST_KEY, list); histAddedNow = [];
+  }
+  // 候補の一覧を作る（辞書・これまでの入力・この端末の入力をまとめる）
+  function titleCandidates() {
+    const m = new Map();   // 表示する名前の照合用 → 候補
+    const add = (name, genre, keys, src, n) => {
+      const k = titleKey(name); if (!k) return;
+      let c = m.get(k);
+      if (!c) { c = { name, genre: genre || '', keys: keys || [k], past: 0, mine: 0, dict: false, order: 1e6 }; m.set(k, c); }
+      if (src === 'dict') { c.dict = true; c.keys = keys; c.genre = genre; c.name = name; }
+      if (src === 'past') c.past += n || 1;
+      if (src === 'mine') { c.mine += n || 1; c.recent = c.recent || n; }
+      if (!c.genre && genre) c.genre = genre;
+    };
+    GAME_TITLES.forEach((t, i) => { add(t[0], t[1], t[2], 'dict'); m.get(titleKey(t[0])).order = i; });   // 同じ点数なら辞書の順（新しい作品が先）
+    const toDict = (name) => { const t = titleIndex.get(titleKey(name)); return t ? t[0] : null; };   // 辞書の呼び方なら、その正式なタイトルに数える
+    pastTitles.forEach(([name, genre, n]) => { const d = toDict(name); add(d || name, d ? null : genre, null, 'past', n); });
+    store.get(GAME_HIST_KEY, []).forEach((x, i) => { if (!x || !x.name) return; const d = toDict(x.name); add(d || x.name, d ? null : x.genre, null, 'mine', (x.n || 1) + (30 - i) / 100); });
+    return [...m.values()];
+  }
+  function suggestTitles(text, genre) {
+    const q = titleKey(text), g = genre && genre !== GENRE_UNSET ? genre : '';
+    const pop = c => Math.min(20, 4 * Math.log2(1 + c.past)) + Math.min(30, 10 * c.mine);
+    const out = [];
+    for (const c of titleCandidates()) {
+      let s;
+      if (!q) {   // まだ何も入れていない：選んだジャンルのよく使われるもの・この端末で前に入れたもの
+        if (g ? c.genre !== g : !(c.mine || c.past)) continue;
+        s = pop(c) + (c.dict ? 1 : 0);
+      } else {
+        let best = 0;
+        for (const k of c.keys) {
+          if (k === q) best = Math.max(best, 100);
+          else if (k.startsWith(q)) best = Math.max(best, 80 - Math.min(20, (k.length - q.length) * 0.5));
+          else if (q.length >= 2 && k.includes(q)) best = Math.max(best, 50);
+        }
+        if (!best) continue;
+        s = best + (g && c.genre === g ? 30 : 0) + pop(c);
+      }
+      out.push([s, c]);
+    }
+    return out.sort((a, b) => b[0] - a[0] || a[1].order - b[1].order || a[1].name.localeCompare(b[1].name, 'ja')).slice(0, SUGG_MAX).map(x => x[1]);
+  }
+  // 入力欄の下の候補の一覧
+  (function setupGameSuggest() {
+    const inp = $('act-game'), box = $('act-game-sugg'), note = $('act-game-note'), gsel = $('act-genre');
+    let items = [], active = -1, noteTimer = null;
+    const close = () => { box.hidden = true; box.innerHTML = ''; items = []; active = -1; inp.setAttribute('aria-expanded', 'false'); inp.removeAttribute('aria-activedescendant'); };
+    const pick = c => {
+      inp.value = c.name;
+      if (gsel.value === GENRE_UNSET && c.genre && GENRES.includes(c.genre)) {
+        gsel.value = c.genre;
+        note.textContent = `ジャンルを「${c.genre}」にしました（違っていたら選び直してください）`;
+        clearTimeout(noteTimer); noteTimer = setTimeout(() => { note.textContent = ''; }, 6000);
+      }
+      close();
+    };
+    const open = () => {
+      items = suggestTitles(inp.value, gsel.value);
+      box.innerHTML = ''; active = -1;
+      if (!items.length) return close();
+      const head = document.createElement('div'); head.className = 'sugg-head';
+      head.textContent = inp.value.trim() ? '候補' : (gsel.value !== GENRE_UNSET ? 'このジャンルでよく選ばれるゲーム' : '前に入力されたゲーム');
+      box.appendChild(head);
+      items.forEach((c, i) => {
+        const el = document.createElement('div'); el.className = 'sugg-item'; el.id = 'sugg-' + i; el.setAttribute('role', 'option');
+        const nm = document.createElement('span'); nm.className = 'sugg-name'; nm.textContent = c.name; el.appendChild(nm);
+        if (c.mine >= 1) { const b = document.createElement('span'); b.className = 'sugg-badge'; b.textContent = '前に入力'; el.appendChild(b); }
+        if (c.genre) { const gg = document.createElement('span'); gg.className = 'sugg-genre'; gg.textContent = c.genre; el.appendChild(gg); }
+        el.addEventListener('pointerdown', e => { e.preventDefault(); pick(c); });   // 入力欄から外れる前に選ぶ
+        box.appendChild(el);
+      });
+      box.hidden = false; inp.setAttribute('aria-expanded', 'true');
+    };
+    const optionEls = () => [...box.querySelectorAll('.sugg-item')];
+    const markItems = () => { optionEls().forEach((el, i) => el.classList.toggle('active', i === active)); if (active >= 0) { inp.setAttribute('aria-activedescendant', 'sugg-' + active); optionEls()[active].scrollIntoView({ block: 'nearest' }); } else inp.removeAttribute('aria-activedescendant'); };
+    inp.setAttribute('role', 'combobox'); inp.setAttribute('aria-autocomplete', 'list'); inp.setAttribute('aria-controls', 'act-game-sugg'); inp.setAttribute('aria-expanded', 'false');
+    inp.addEventListener('input', open);
+    inp.addEventListener('focus', open);
+    inp.addEventListener('blur', () => setTimeout(close, 120));
+    inp.addEventListener('keydown', e => {
+      if (box.hidden) { if (e.key === 'ArrowDown') { open(); e.preventDefault(); } return; }
+      if (e.key === 'ArrowDown') { active = Math.min(items.length - 1, active + 1); markItems(); e.preventDefault(); }
+      else if (e.key === 'ArrowUp') { active = Math.max(-1, active - 1); markItems(); e.preventDefault(); }
+      else if (e.key === 'Enter' && active >= 0) { pick(items[active]); e.preventDefault(); e.stopPropagation(); }
+      else if (e.key === 'Escape') { close(); e.preventDefault(); e.stopPropagation(); }
+    });
+    gsel.addEventListener('change', () => { note.textContent = ''; if (document.activeElement === inp) open(); });
+  })();
+
   function applyActivity() {
     const a = { category: actDraft.category, genre: '', gameName: '', detail: '' };
-    if (a.category === 'ゲーム') { a.genre = $('act-genre').value; a.gameName = $('act-game').value.trim(); }
+    if (a.category === 'ゲーム') { a.genre = $('act-genre').value; a.gameName = $('act-game').value.trim(); if (a.gameName) addGameHistory(a.gameName, a.genre); }
     if (a.category === '作業') a.genre = $('act-work-genre').value;
     if (a.category === 'その他') a.detail = $('act-detail').value.trim();
     const changed = activityLabel(a) !== activityLabel(activity);
@@ -3140,7 +3286,7 @@
       store.set(ACT_KEY, { activity, eyewear, pid: id || savedPid, at: new Date().toISOString() });
       if (id) savedPid = id;
     } else {
-      store.remove(LAST_THR_KEY); store.remove(ACT_KEY);
+      store.remove(LAST_THR_KEY); store.remove(ACT_KEY); forgetGameHistoryNow();
       if (id && byId[id]) { delete byId[id]; store.set(THR_BY_ID_KEY, byId); }
     }
   }
@@ -3267,6 +3413,7 @@
 
   // ── 起動時 ───────────────────────────────────────────────────
   checkUpload();
+  fetchTitles();
   resendPending();
 
 </script>
