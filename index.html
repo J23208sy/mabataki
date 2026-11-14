@@ -161,6 +161,11 @@
       display: flex; flex-direction: column; overflow-y: auto;
     }
     #menu-panel.open { left: 0; }
+    /* メニューを下に動かしても、左上のボタンとアプリ名に文字が重ならないようにする帯 */
+    #menu-panel::before {
+      content: ''; position: sticky; top: 0; z-index: 5; flex: 0 0 72px; margin-bottom: -72px;
+      background: var(--surface); pointer-events: none;
+    }
 
     .menu-header {
       padding: 80px 24px 20px;
@@ -205,7 +210,7 @@
     .eye-meter-legend b { color: var(--text-mid); font-weight: 400; }
     .lg { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 3px; vertical-align: -1px; }
     .lg-closed { background: var(--danger); } .lg-open { background: var(--accent); } .lg-thr { background: #fff; }
-    #btn-thr-mid { margin-top: 8px; font-size: 12px; }
+    #btn-thr-mid { margin-top: 10px; font-size: 12px; }
     #btn-thr-mid:disabled { opacity: .45; cursor: default; }
     .ear-monitor {
       margin-top: 10px; padding: 12px;
@@ -513,7 +518,6 @@
     }
     .notice-list { font-size: 12px; line-height: 1.75; color: var(--text-mid); padding-left: 1.2em; }
     .notice-list li { margin-bottom: 6px; }
-    .notice-list b { color: var(--text); }
     .check { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-mid); cursor: pointer; }
     .check input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
     .sugg { margin-top: 4px; border: 1px solid var(--border2); border-radius: 8px; background: var(--surface); max-height: 260px; overflow-y: auto; }
@@ -540,10 +544,26 @@
     @keyframes blinkflash { 0% { opacity: 1; } 100% { opacity: 0; } }
     #test-panel[data-view="done"] .tip:not(.tip-menu) { display: none; }
     .tip { font-size: 11px; color: var(--gold); line-height: 1.6; text-align: center; margin-bottom: 6px; }
-    .welcome-tip { max-width: 460px; font-size: 12px; margin-bottom: 20px; }
+    /* 最初の画面：アプリ名（日本語なので少し大きく）と、ボタンの下の案内 */
+    .stage-badge.badge-ja { font-family: var(--font-body); font-size: 14px; font-weight: 700; letter-spacing: .16em; text-transform: none; padding: 6px 20px; margin-bottom: 20px; }
+    #screen-welcome .stage-desc { margin-bottom: 22px; }
+    /* ふだんは真ん中に1画面で収める。注意の表示が増えて入りきらないときだけ、切れずにスクロールできるようにする */
+    #screen-welcome { justify-content: flex-start; overflow-y: auto; overscroll-behavior: contain; }
+    #screen-welcome::before, #screen-welcome::after { content: ''; flex: 1 0 0px; }
+    .welcome-notes {
+      list-style: none; width: 100%; max-width: 460px; margin: 26px 0 0; padding: 12px 16px;
+      border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,.02);
+      display: flex; flex-direction: column; gap: 9px; text-align: left;
+      font-size: 12px; line-height: 1.65; color: var(--text-mid);
+    }
+    .welcome-notes li { display: flex; gap: 10px; align-items: flex-start; }
+    .welcome-notes .wn-tip { color: var(--gold); }
+    .wn-ico { flex: 0 0 18px; text-align: center; line-height: 1.65; }
+    .wn-menu-ico { display: flex; flex-direction: column; gap: 3px; padding-top: 5px; align-items: center; }
+    .wn-menu-ico i { display: block; width: 13px; height: 2px; border-radius: 1px; background: var(--accent); }
 
     .status-line { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; color: var(--text-dim); margin-top: 6px; max-width: 92vw; line-height: 1.6; }
-    #upload-status { margin-top: 22px; }
+    #upload-status { margin-top: 16px; }
     .status-line.warn { color: var(--gold); font-size: 11px; letter-spacing: 0; }
     .end-msg { font-size: 13px; color: var(--text-mid); max-width: 560px; line-height: 1.6; margin: 0 0 10px; }
     /* ── 結果 ── */
@@ -664,14 +684,31 @@
     /* ── スマホ縦 ── */
     @media (max-width: 520px) {
       .stage-btn { min-width: 100%; }
+      /* 最初の画面：スマホでも1画面に収まるように、少し詰める */
+      #screen-welcome { padding-top: 70px; }
+      #screen-welcome .stage-badge.badge-ja { font-size: 13px; padding: 4px 16px; margin-bottom: 12px; }
+      #screen-welcome .stage-title { margin-bottom: 8px; }
+      #screen-welcome .stage-desc { font-size: 12px; line-height: 1.7; margin-bottom: 14px; }
+      #screen-welcome .stage-btns { gap: 10px; margin-top: 0; }
+      #screen-welcome .stage-btn { padding: 12px 20px; }
+      .welcome-notes { margin-top: 14px; padding: 10px 12px; gap: 6px; font-size: 11.5px; line-height: 1.6; }
+      #upload-status { margin-top: 10px; }
       .thr-input-row { flex-direction: column; align-items: stretch; }
       #thr-number { width: 100%; }
       #app { padding-left: 10px; padding-right: 10px; }
+    }
+    /* 小さめのスマホ（縦）：説明の2行はボタンの中の文と重なるので省く */
+    @media (max-width: 520px) and (max-height: 620px) {
+      #screen-welcome .stage-desc { display: none; }
+      #screen-welcome .stage-title { margin-bottom: 14px; }
     }
     /* ── 高さが低い画面（横向きスマホなど）──────────────── */
     @media (max-height: 520px) {
       .stage-screen { padding-top: 52px; }
       .stage-desc { display: none; }
+      .stage-badge.badge-ja { font-size: 12px; padding: 3px 14px; margin-bottom: 8px; }
+      .welcome-notes { margin-top: 10px; padding: 6px 12px; font-size: 11px; gap: 3px; max-width: 560px; }
+      #upload-status { margin-top: 6px; }
       .stage-title { font-size: 22px; margin-bottom: 8px; }
       .stage-btn { padding: 10px 20px; font-size: 16px; min-width: 160px; }
       .thr-input-row { margin: 10px 0 14px; }
@@ -701,14 +738,13 @@
   <button id="menu-btn" aria-label="メニュー">
     <span></span><span></span><span></span>
   </button>
-  <div id="app-title-label">瞬き検出アプリ ver4.18（研究用）</div>
+  <div id="app-title-label">瞬き検出アプリ ver4.20（研究用）</div>
 
   <!-- ── MENU PANEL ── -->
   <div id="menu-overlay"></div>
   <aside id="menu-panel">
     <div class="menu-header">
       <h2>SETTINGS</h2>
-      <p>// 計測の設定</p>
     </div>
 
     <!-- 参加者情報（任意） -->
@@ -719,20 +755,16 @@
         <input type="text" id="p-id" maxlength="40" autocomplete="off" placeholder="未入力でもOK">
       </div>
       <div class="field">
-        <label for="p-session">セッション番号</label>
-        <input type="text" id="p-session" maxlength="20" autocomplete="off" placeholder="未入力でもOK">
-      </div>
-      <div class="field">
         <label for="p-memo">メモ</label>
         <textarea id="p-memo" rows="2" maxlength="300" placeholder="未入力でもOK"></textarea>
       </div>
-      <div class="hint">入力しなくても計測できます。氏名は書かないでください。</div>
+      <div class="hint">入力しなくても計測できます。IDは、アンケートなどを実施した場合に照合するために使います。メモは、何かあれば入力してください。</div>
     </div>
 
     <!-- 検出感度：全員に表示 -->
     <div class="menu-section">
       <div class="menu-section-title">検出感度</div>
-      <!-- 目の開き具合（リアルタイム）。下のスライダーと同じ目盛りなので、位置をそのまま合わせられる -->
+      <!-- 目の開き具合（リアルタイム）。白い線がいまの検出感度 -->
       <div class="eye-meter" id="eye-meter">
         <div class="eye-meter-head">
           <span>👁 目の開き具合</span>
@@ -752,18 +784,19 @@
         <div class="hint" id="eye-meter-hint">カメラが動いている間（検出感度の自動設定・計測画面）に表示されます。</div>
       </div>
 
-      <div class="setting-row" style="margin-top:10px">
-        <label>検出感度 <span class="val" id="ear-val-txt">0.50</span></label>
-        <input type="range" id="ear-slider" min="0" max="1" step="0.01" value="0.50">
-      </div>
-      <button class="cam-ctrl-btn" id="btn-thr-mid" disabled>開いた時と閉じた時の間に合わせる</button>
-      <div class="hint" data-i18n-html="thr-hint">何回か瞬きをしてから、<b>白い線（検出感度）を「閉じた時」と「開いた時」の間</b>に動かしてください。計測中に変えると、変えた時刻が記録されます。</div>
+      <button class="cam-ctrl-btn" id="btn-thr-mid" disabled>検出感度を再設定する</button>
+      <div class="hint">基本的には押さなくていいボタンです。検出感度が絶対にずれていると思ったときだけ押してください。作業に使う画面を10秒ほど自然に見て（瞬きもして）から押すと、正しい感度になります。計測中は押せません。</div>
     </div>
 
     <!-- ここから管理者用（URLの末尾に ?admin を付けたときだけ表示） -->
     <div class="admin-only">
       <div class="menu-section">
         <div class="menu-section-title">その他の検出設定 — 管理者</div>
+        <div class="setting-row">
+          <label>検出感度 <span class="val" id="ear-val-txt">0.50</span></label>
+          <input type="range" id="ear-slider" min="0" max="1" step="0.01" value="0.50">
+        </div>
+        <div class="hint" style="margin-bottom:14px">検出感度を手で動かせるのは管理者だけです（参加者の画面には出ません）。</div>
         <div class="setting-row">
           <label>最小閉眼時間 <span class="val"><span id="minclosed-val">50</span> ms</span></label>
           <input type="range" id="minclosed-slider" min="10" max="200" step="10" value="50">
@@ -824,16 +857,15 @@
       </select>
     </div>
 
-    <!-- 研究へのご協力について（同意文：操作は不要） -->
+    <!-- このアプリについて（操作は不要） -->
     <div class="menu-section">
-      <div class="menu-section-title">研究へのご協力について</div>
+      <div class="menu-section-title">このアプリについて</div>
       <ul class="notice-list" data-i18n-html="notice">
-        <li>この研究は、画面（動画・ゲーム・作業など）を見ているときの<b>瞬きの回数や間隔</b>を調べるものです。</li>
-        <li>カメラ映像は<b>この端末の中だけで処理</b>され、<b>保存も送信もされません</b>。</li>
-        <li>記録・送信されるのは、瞬きの時刻などの<b>数値データ</b>と、利用環境（ブラウザの種類・画面サイズなど）です。氏名は記録しません。</li>
+        <li>この研究は、画面（動画・ゲーム・作業など）を見ているときの瞬きの回数や間隔を調べるものです。</li>
+        <li>カメラ映像はこの端末の中だけで処理され、保存も送信もされません。</li>
+        <li>記録・送信されるのは、瞬きの時刻などの数値データと、利用環境（ブラウザの種類・画面サイズなど）です。氏名は記録しません。</li>
         <li>学籍番号などのIDを入力した場合は、データと一緒に保存され、アンケートなどとの照合に使います。</li>
       </ul>
-      <div class="hint">このアプリを使って計測を始めた時点で、上記の内容を確認したものとして扱います。</div>
     </div>
   </aside>
 
@@ -873,7 +905,6 @@
       <div class="measure-section-title">// 検出感度の自動設定</div>
       <div class="tip">💡 ゲームや作業に使う画面を見ながら瞬きしてください。瞬きを拾うたびに音が鳴ります。</div>
 
-      <div class="tip tip-menu">🔧 細かい調整は、メニュー（☰）の「検出感度」でできます。</div>
 
       <div class="test-box" id="test-run">
         <div class="test-thr">目の開き具合 <span id="test-thr-val">—</span></div>
@@ -917,14 +948,17 @@
 
   <!-- ── 最初の画面 ── -->
   <section class="stage-screen" id="screen-welcome">
-    <div class="stage-badge">BLINK STUDY</div>
+    <div class="stage-badge badge-ja">瞬き検出アプリ</div>
     <h1 class="stage-title">このアプリは初めてですか？</h1>
     <p class="stage-desc">初めての方は、5回の瞬きで検出感度を自動で決めます。<br>2回目以降の方は、前回の検出感度を使えます。</p>
-    <p class="tip welcome-tip">💡 ゲームや作業に使う画面を見ながら設定すると、精度が上がります。<br>カメラは目の高さで、顔の正面に近い位置に置いてください。</p>
     <div class="stage-btns">
       <button id="btn-first-yes" class="stage-btn primary">はい<small>5回瞬きして自動で設定</small></button>
       <button id="btn-first-no" class="stage-btn">いいえ<small>検出感度を入力する</small></button>
     </div>
+    <ul class="welcome-notes">
+      <li class="wn-tip"><span class="wn-ico" aria-hidden="true">💡</span><span>ゲームや作業に使う画面を見ながら設定すると、精度が上がります。カメラは目の高さで、顔の正面に近い位置に置いてください。</span></li>
+      <li><span class="wn-ico wn-menu-ico" aria-hidden="true"><i></i><i></i><i></i></span><span id="wn-menu">左上のメニューから、設定の変更や「このアプリについて」の確認ができます。</span><span id="wn-menu-win" hidden>左上のメニューから、「Windows版アプリ」のインストールや「このアプリについて」の確認ができます。</span></li>
+    </ul>
     <div id="upload-status" class="status-line"></div>
     <div id="pending-status" class="status-line"></div>
   </section>
@@ -1062,7 +1096,7 @@
   // ============================================================
   //  BLINK STUDY — 瞬き計測システム（研究用）
   // ============================================================
-  const APP_VERSION     = 'ver4.18';
+  const APP_VERSION     = 'ver4.20';
   const LIB_VERSIONS    = { tasksVision: '0.10.35', faceLandmarkerModel: 'float16/1', faceMesh: '0.4.1633559619' };   // 読み込むMediaPipeのバージョン（固定）
   const CONSENT_VERSION = '2026-10';                         // 同意文を変えたら更新
 
@@ -1117,6 +1151,9 @@
     get(k, d = null) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
     remove(k) { try { localStorage.removeItem(k); } catch (e) {} },
+    // 保存された値が思わぬ形でも止まらないように、形を確かめて返す（違っていれば空として扱う）
+    list(k) { const v = this.get(k, []); return Array.isArray(v) ? v : []; },
+    obj(k) { const v = this.get(k, {}); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; },
   };
 
   // ============================================================
@@ -1143,16 +1180,15 @@
     '5回瞬きして自動で設定': 'Set automatically with 5 blinks',
     // ── 共通・ヘッダー ──
     'BLINK STUDY — 瞬き計測システム': 'BLINK STUDY — Blink Measurement System',
-    '瞬き検出アプリ ver4.18（研究用）': 'Blink Detection App ver4.18 (Research)',
+    '瞬き検出アプリ ver4.20（研究用）': 'Blink Detection App ver4.20 (Research)',
     'メニュー': 'Menu',
+    '不明': 'unknown',
     // ── メニュー ──
-    '// 計測の設定': '// Measurement settings',
     '参加者情報（任意）': 'Participant info (optional)',
     'ID（学籍番号など）': 'ID (e.g. student number)',
-    'セッション番号': 'Session number',
     'メモ': 'Notes',
     '未入力でもOK': 'Optional',
-    '入力しなくても計測できます。氏名は書かないでください。': 'You can measure without filling these in. Do not enter your name.',
+    '入力しなくても計測できます。IDは、アンケートなどを実施した場合に照合するために使います。メモは、何かあれば入力してください。': 'You can measure without filling these in. The ID is used to match your data with a questionnaire, if one is given. Use Notes for anything you want to add.',
     '計測オプション': 'Measurement options',
     '計測中はカメラ映像を隠す': 'Hide the camera image during measurement',
     '自分の顔が見えると、瞬きに影響することがあります。隠しても、検出の状態は表示されます。': 'Seeing your own face can affect how you blink. The detection status is still shown when hidden.',
@@ -1185,10 +1221,14 @@
     '閉じた時': 'Closed', '検出感度': 'Sensitivity', '開いた時': 'Open',
     'カメラが動いている間（検出感度の自動設定・計測画面）に表示されます。': 'Shown while the camera is running (automatic sensitivity setup and measurement screens).',
     '何回か瞬きをすると、「閉じた時」の位置が表示されます。': 'Blink a few times and the "Closed" position will appear.',
-    '検出感度が低すぎます（閉じた時より左）。瞬きを数えられません。右に動かしてください。': 'The sensitivity is too low (left of "Closed"). Blinks cannot be counted. Move it to the right.',
-    '検出感度が高すぎます（開いた時より右）。目を開けていても瞬きと数えてしまいます。左に動かしてください。': 'The sensitivity is too high (right of "Open"). Open eyes will be counted as blinks. Move it to the left.',
+    '検出感度が低すぎます（閉じた時より左）。瞬きを数えられません。': 'The sensitivity is too low (left of "Closed"). Blinks cannot be counted.',
+    '検出感度が低すぎます（閉じた時より左）。瞬きを数えられません。下の「検出感度を再設定する」を押してください。': 'The sensitivity is too low (left of "Closed"). Blinks cannot be counted. Press "Reset the sensitivity" below.',
+    '検出感度が高すぎます（開いた時より右）。目を開けていても瞬きと数えてしまいます。': 'The sensitivity is too high (right of "Open"). Open eyes will be counted as blinks.',
+    '検出感度が高すぎます（開いた時より右）。目を開けていても瞬きと数えてしまいます。下の「検出感度を再設定する」を押してください。': 'The sensitivity is too high (right of "Open"). Open eyes will be counted as blinks. Press "Reset the sensitivity" below.',
+    '検出感度を手で動かせるのは管理者だけです（参加者の画面には出ません）。': 'Only the admin can move the sensitivity by hand (it is not shown to participants).',
     '検出感度は「閉じた時」と「開いた時」の間にあります。': 'The sensitivity is between "Closed" and "Open".',
-    '開いた時と閉じた時の間に合わせる': 'Set it between Open and Closed',
+    '検出感度を再設定する': 'Reset the sensitivity',
+    '基本的には押さなくていいボタンです。検出感度が絶対にずれていると思ったときだけ押してください。作業に使う画面を10秒ほど自然に見て（瞬きもして）から押すと、正しい感度になります。計測中は押せません。': 'You normally do not need this button. Press it only when you are sure the sensitivity is off. Look at the screen you work on naturally for about 10 seconds (blinking as usual), then press it to get the right sensitivity. It cannot be pressed during a measurement.',
     '顔が見えません': 'Face not visible',
     'その他の検出設定 — 管理者': 'Other detection settings — admin',
     '最小閉眼時間': 'Minimum eye-closure time',
@@ -1201,8 +1241,7 @@
     'AIが判定した目の開き具合を、普段目を開けているときを1.0として表しています。': 'It shows how open your eyes are, as judged by AI, with your normal open eyes as 1.0.',
     '目を閉じると0に近づきます。姿勢やカメラの角度が変わっても、基準が自動でついていきます。': 'It approaches 0 when your eyes close. The reference adjusts automatically when your posture or the camera angle changes.',
     'カメラが横に寄りすぎています。顔がもう少し正面から写る位置に置いてください': 'The camera is too far to the side. Place it where it sees your face more from the front',
-    '研究へのご協力について': 'About taking part in this study',
-    'このアプリを使って計測を始めた時点で、上記の内容を確認したものとして扱います。': 'Starting a measurement with this app means you have read the above.',
+    'このアプリについて': 'About this app',
     // ── カメラ枠 ──
     '計測中です': 'Measuring',
     '（カメラ映像は非表示にしています）': '(the camera image is hidden)',
@@ -1216,7 +1255,6 @@
     'もう一度お願いします': 'Please try again',
     '目を閉じた時と開いた時の差が小さく、うまく測れませんでした。カメラの位置や部屋の明るさを確認して、もう一度お願いします': 'The difference between closed and open eyes was too small to measure. Please check the camera position and the room lighting, then try again.',
     '💡 ゲームや作業に使う画面を見ながら瞬きしてください。瞬きを拾うたびに音が鳴ります。': '💡 Blink while looking at the screen you use for your game or work. A sound plays each time a blink is detected.',
-    '🔧 細かい調整は、メニュー（☰）の「検出感度」でできます。': '🔧 Fine-tune it under "Sensitivity" in the menu (☰).',
     'テスト中の検出感度': 'Sensitivity being tested',
     'カメラを起動しています…': 'Starting the camera…',
     '判定する': 'Check',
@@ -1242,9 +1280,11 @@
     'このアプリは初めてですか？': 'Is this your first time using this app?',
     '初めての方は、5回の瞬きで検出感度を自動で決めます。': 'If this is your first time, the sensitivity is set automatically with 5 blinks.',
     '2回目以降の方は、前回の検出感度を使えます。': 'If you have used it before, you can use your previous sensitivity.',
-    '💡 ゲームや作業に使う画面を見ながら設定すると、精度が上がります。': '💡 Accuracy improves if you look at the screen you use for your game or work while setting it up.',
-    'カメラは目の高さで、顔の正面に近い位置に置いてください。': 'Place the camera at eye level, as close to the front of your face as possible.',
-    'はい': 'Yes', '5回瞬きして自動で設定': 'Run the sensitivity test',
+    '瞬き検出アプリ': 'Blink Detection App',
+    'ゲームや作業に使う画面を見ながら設定すると、精度が上がります。カメラは目の高さで、顔の正面に近い位置に置いてください。': 'Accuracy improves if you look at the screen you use for your game or work while setting it up. Place the camera at eye level, as close to the front of your face as possible.',
+    '左上のメニューから、設定の変更や「このアプリについて」の確認ができます。': 'From the menu at the top left, you can change settings and read “About this app”.',
+    '左上のメニューから、「Windows版アプリ」のインストールや「このアプリについて」の確認ができます。': 'From the menu at the top left, you can install the Windows app and read “About this app”.',
+    'はい': 'Yes',
     'いいえ': 'No', '検出感度を入力する': 'Enter a sensitivity',
     '// データ送信: 未設定（計測終了時にこのPCへ保存）': '// Data upload: not set (saved to this PC when the measurement ends)',
     '// データ送信: 設定済み（接続を確認中…）': '// Data upload: set (checking connection…)',
@@ -1362,11 +1402,11 @@
     [/^⚠ 送信できず、自動再送のための控えも保存できませんでした（ブラウザの保存領域がいっぱい・使えない）。ダウンロードフォルダの (\S+) を研究者に渡してください。（原因: ([\s\S]*)）$/, m => `⚠ Could not send, and a copy for automatic resending could not be stored either (browser storage is full or unavailable). Please give ${m[1]} in your Downloads folder to the researcher. (Reason: ${tr(m[2])})`],
     [/^目安：([\d.]+) より下がると1回$/, m => `Counts one blink below ${m[1]}`],
     [/^(\d+)秒以内に応答がありませんでした$/, m => `No response within ${m[1]} seconds`],
-    [/^サーバーのエラー: ([\s\S]*)$/, m => `Server error: ${m[1]}`],
+    [/^サーバーのエラー: ([\s\S]*)$/, m => `Server error: ${EN[m[1]] || m[1]}`],
     [/^通信エラー: ([\s\S]*)$/, m => `Network error: ${m[1]}`],
     [/^顔認識がうまく動いていません（([\s\S]*)）。ページを開き直してください$/, m => `Face recognition is not working properly (${m[1]}). Please reload the page`],
-    [/^顔認識を読み込めませんでした（([\s\S]*)）。ネットワークを確認して、「目の位置をリセット」を押すか、ページを開き直してください$/, m => `Could not load face recognition (${m[1]}). Check the network, then press "Reset eye tracking" or reload the page`],
-    [/^カメラを起動できませんでした。\n（([\s\S]*)）$/, m => `Could not start the camera.\n(${m[1]})`],
+    [/^顔認識を読み込めませんでした（([\s\S]*)）。ネットワークを確認して、「目の位置をリセット」を押すか、ページを開き直してください$/, m => `Could not load face recognition (${EN[m[1]] || m[1]}). Check the network, then press "Reset eye tracking" or reload the page`],
+    [/^カメラを起動できませんでした。\n（([\s\S]*)）$/, m => `Could not start the camera.\n(${EN[m[1]] || m[1]})`],
   ];
 
   // 日本語の文 → 英語（英語表示のときだけ）。前後の空白は残す
@@ -1384,11 +1424,10 @@
 
   // 文が混ざった（太字を含む）ところは、まとめて差し替える
   const EN_HTML = {
-    'notice': '<li>This study looks at <b>how often and at what intervals people blink</b> while looking at a screen (videos, games, work, etc.).</li>' +
-      '<li>The camera image is <b>processed only on this device</b> and is <b>never saved or sent</b>.</li>' +
-      '<li>Only <b>numerical data</b>, such as blink times, and your environment (browser type, screen size, etc.) are recorded and sent. Your name is not recorded.</li>' +
+    'notice': '<li>This study looks at how often and at what intervals people blink while looking at a screen (videos, games, work, etc.).</li>' +
+      '<li>The camera image is processed only on this device and is never saved or sent.</li>' +
+      '<li>Only numerical data, such as blink times, and your environment (browser type, screen size, etc.) are recorded and sent. Your name is not recorded.</li>' +
       '<li>If you enter an ID such as your student number, it is saved with the data and used to match it with questionnaires.</li>',
-    'thr-hint': 'After blinking a few times, move <b>the white line (sensitivity) between \u201cClosed\u201d and \u201cOpen\u201d</b>. If you change it during a measurement, the time of the change is recorded.',
     'opt-sound': 'Until the measurement starts, signal each detected blink with a <b>sound</b>',
     'opt-light': 'Until the measurement starts, signal each detected blink with a <b>light</b>',
     'win-steps': '<li>Press <b>“Download”</b> below (about 110 MB)</li>' +
@@ -1488,6 +1527,7 @@
     const url = winAppUrl();
     if (!isWin || inApp || !url) return;
     $('win-app-sec').hidden = false;
+    $('wn-menu').hidden = true; $('wn-menu-win').hidden = false;   // 最初の画面の案内も、Windows版アプリ入りの文に
     const modal = $('modal-win');
     $('btn-win-install').addEventListener('click', () => { modal.classList.add('show'); });
     $('btn-win-close').addEventListener('click', () => modal.classList.remove('show'));
@@ -1770,11 +1810,11 @@
     if (show) { $('mark-closed').style.left = pct(r.closed); $('mark-open').style.left = pct(r.open); }
     $('lg-closed').textContent = show ? r.closed.toFixed(2) : '—';
     $('lg-open').textContent = r ? r.open.toFixed(2) : '—';
-    $('btn-thr-mid').disabled = !show;
+    $('btn-thr-mid').disabled = !show || measuring;   // 計測中は押せない
     $('eye-meter-hint').textContent = !r ? 'カメラが動いている間（検出感度の自動設定・計測画面）に表示されます。'
       : (!show ? '何回か瞬きをすると、「閉じた時」の位置が表示されます。'
-      : (cfg.earThreshold <= r.closed ? '検出感度が低すぎます（閉じた時より左）。瞬きを数えられません。右に動かしてください。'
-      : (cfg.earThreshold >= r.open ? '検出感度が高すぎます（開いた時より右）。目を開けていても瞬きと数えてしまいます。左に動かしてください。'
+      : (cfg.earThreshold <= r.closed ? '検出感度が低すぎます（閉じた時より左）。瞬きを数えられません。' + (measuring ? '' : '下の「検出感度を再設定する」を押してください。')
+      : (cfg.earThreshold >= r.open ? '検出感度が高すぎます（開いた時より右）。目を開けていても瞬きと数えてしまいます。' + (measuring ? '' : '下の「検出感度を再設定する」を押してください。')
       : '検出感度は「閉じた時」と「開いた時」の間にあります。')));
   }
 
@@ -2436,7 +2476,7 @@
 
   function loadSavedThreshold() {
     const id = $('p-id').value.trim() || savedPid;
-    const byId = store.get(THR_BY_ID_KEY, {});
+    const byId = store.obj(THR_BY_ID_KEY);
     if (id && byId[id]) return { value: byId[id].value, label: `ID「${id}」の前回の値` };
     const last = store.get(LAST_THR_KEY, null);
     if (last && typeof last.value === 'number') return { value: last.value, label: 'この端末で前回使った値' };
@@ -2446,7 +2486,7 @@
     const rec = { value: cfg.earThreshold, at: new Date().toISOString() };
     store.set(LAST_THR_KEY, rec);
     const id = $('p-id').value.trim();
-    if (id) { const m = store.get(THR_BY_ID_KEY, {}); m[id] = rec; store.set(THR_BY_ID_KEY, m); }
+    if (id) { const m = store.obj(THR_BY_ID_KEY); m[id] = rec; store.set(THR_BY_ID_KEY, m); }
   }
   function openInput() {
     testInfo = null;
@@ -2562,7 +2602,7 @@
   }
   function addGameHistory(name, genre) {
     name = String(name || '').trim(); if (!name) return;
-    const k = titleKey(name), list = store.get(GAME_HIST_KEY, []).filter(x => x && x.name);
+    const k = titleKey(name), list = store.list(GAME_HIST_KEY).filter(x => x && x.name);
     const i = list.findIndex(x => titleKey(x.name) === k);
     if (i >= 0) { list[i].n = (list[i].n || 1) + 1; list[i].at = new Date().toISOString(); if (genre && genre !== GENRE_UNSET) list[i].genre = genre; }
     else list.push({ name, genre: genre && genre !== GENRE_UNSET ? genre : '', n: 1, at: new Date().toISOString() });
@@ -2572,7 +2612,7 @@
   }
   function forgetGameHistoryNow() {
     if (!histAddedNow.length) return;
-    const list = store.get(GAME_HIST_KEY, []);
+    const list = store.list(GAME_HIST_KEY);
     for (const k of histAddedNow) { const i = list.findIndex(x => titleKey(x.name) === k); if (i >= 0 && --list[i].n <= 0) list.splice(i, 1); }
     store.set(GAME_HIST_KEY, list); histAddedNow = [];
   }
@@ -2591,7 +2631,7 @@
     GAME_TITLES.forEach((t, i) => { add(t[0], t[1], t[2], 'dict'); m.get(titleKey(t[0])).order = i; });   // 同じ点数なら辞書の順（新しい作品が先）
     const toDict = (name) => { const t = titleIndex.get(titleKey(name)); return t ? t[0] : null; };   // 辞書の呼び方なら、その正式なタイトルに数える
     pastTitles.forEach(([name, genre, n]) => { const d = toDict(name); add(d || name, d ? null : genre, null, 'past', n); });
-    store.get(GAME_HIST_KEY, []).forEach((x, i) => { if (!x || !x.name) return; const d = toDict(x.name); add(d || x.name, d ? null : x.genre, null, 'mine', (x.n || 1) + (30 - i) / 100); });
+    store.list(GAME_HIST_KEY).forEach((x, i) => { if (!x || !x.name) return; const d = toDict(x.name); add(d || x.name, d ? null : x.genre, null, 'mine', (x.n || 1) + (30 - i) / 100); });
     return [...m.values()];
   }
   function suggestTitles(text, genre) {
@@ -2989,7 +3029,7 @@
       sessionId,
       savedAt: new Date().toISOString(),
       endReason: reason,    // user / scheduled / tab_hidden / stalled / camera_lost / page_closed
-      participant: { id: $('p-id').value.trim(), session: $('p-session').value.trim(), eyewear, memo: $('p-memo').value.trim() },
+      participant: { id: $('p-id').value.trim(), session: '', eyewear, memo: $('p-memo').value.trim() },
       consent: consentInfo,                    // 同意ボタンはなし。メニューに掲載していた同意文の版を記録
       environment: {
         userAgent: navigator.userAgent,
@@ -3278,7 +3318,7 @@
 
   // 未送信データ（localStorage）
   let resending = false;
-  const getPending = () => store.get(PENDING_KEY, []);
+  const getPending = () => store.list(PENDING_KEY).filter(x => x && x.fileName && x.data);
   // 保存領域が足りないときは、古い控えから捨てて入るまで試す。入らなければ false
   function addPending(data, fileName) {
     const list = getPending().filter(x => x.fileName !== fileName);
@@ -3382,7 +3422,7 @@
   function applySaveUser() {
     const d = lastResult; if (!d) return;
     const id = (d.participant && d.participant.id) || '';
-    const byId = store.get(THR_BY_ID_KEY, {});
+    const byId = store.obj(THR_BY_ID_KEY);
     if ($('opt-save-user').checked) {
       const rec = { value: d.earThreshold, at: new Date().toISOString() };
       store.set(LAST_THR_KEY, rec);
@@ -3402,7 +3442,7 @@
       activity = { category: '', genre: '', gameName: '', detail: '' }; eyewear = ''; savedPid = ''; carriedOver = false;
       updateActivityBtn();
     }
-    ['p-id', 'p-session', 'p-memo', 'opt-planned'].forEach(id => { $(id).value = ''; });
+    ['p-id', 'p-memo', 'opt-planned'].forEach(id => { $(id).value = ''; });
     // 活動・眼鏡コンタクトの使用は、次回に引き継ぐため消さない（次の計測の開始時に確認される）
     thresholdSource = null; testInfo = null;
     setStage('welcome');
@@ -3491,7 +3531,7 @@
   $('ear-slider').addEventListener('change', e => logThresholdChange(+e.target.value));
   $('btn-thr-mid').addEventListener('click', () => {
     const r = eyeRefs();
-    if (!r || !r.blinked) return;
+    if (measuring || !r || !r.blinked) return;   // 計測中は変えない
     const v = Math.round(((r.closed + r.open) / 2) * 100) / 100;
     setThreshold(v);
     logThresholdChange(v);
