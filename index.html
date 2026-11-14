@@ -637,6 +637,10 @@
     .modal-card h3 { font-family: var(--font-body); font-weight: 900; font-size: 18px; margin-bottom: 8px; }
     .modal-card p { font-size: 13px; color: var(--text-mid); line-height: 1.7; }
     .modal-card .field { text-align: left; margin-top: 12px; margin-bottom: 4px; }
+    .win-steps { text-align: left; margin: 12px 0 6px; padding-left: 1.5em; font-size: 13px; line-height: 1.75; color: var(--text-mid); }
+    .win-steps li { margin-bottom: 4px; }
+    .win-steps b { color: var(--text); }
+    #modal-win .hint { text-align: left; }
     .modal-btns { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
     .modal-btns .stage-btn { min-width: 0; flex: 1; padding: 12px 14px; font-size: 15px; }
     .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
@@ -697,7 +701,7 @@
   <button id="menu-btn" aria-label="メニュー">
     <span></span><span></span><span></span>
   </button>
-  <div id="app-title-label">瞬き検出アプリ ver4.17（研究用）</div>
+  <div id="app-title-label">瞬き検出アプリ ver4.18（研究用）</div>
 
   <!-- ── MENU PANEL ── -->
   <div id="menu-overlay"></div>
@@ -802,6 +806,13 @@
       <div class="menu-section-title">カメラ</div>
       <select id="cam-select"><option value="">（カメラ起動後に選べます）</option></select>
       <div class="hint">外付けWebカメラを使うときは、ここで切り替えます（計測中は変更できません）。</div>
+    </div>
+
+    <!-- Windows版アプリ（Windowsのブラウザで開いたときだけ表示） -->
+    <div class="menu-section" id="win-app-sec" hidden>
+      <div class="menu-section-title">Windows版アプリ</div>
+      <button class="cam-ctrl-btn" id="btn-win-install">Windows版アプリをインストール</button>
+      <div class="hint">ウィンドウを最小化しても計測が止まらない、パソコン用のアプリです。</div>
     </div>
 
     <!-- 表示言語 -->
@@ -973,6 +984,25 @@
     </div>
   </div>
 
+  <!-- ── Windows版アプリのインストール ── -->
+  <div class="modal" id="modal-win">
+    <div class="modal-card">
+      <h3>Windows版アプリをインストール</h3>
+      <p>ブラウザ版と同じ計測アプリです。ウィンドウを最小化したり、ほかの画面の後ろに隠れたりしても計測が止まりません。</p>
+      <ol class="win-steps" data-i18n-html="win-steps">
+        <li>下の<b>「ダウンロード」</b>を押す（約110MB）</li>
+        <li>ダウンロードした<b>「BlinkStudy-Setup.exe」</b>を開く（ブラウザに注意が出たら<b>「保存」</b>を選ぶ）</li>
+        <li>「WindowsによってPCが保護されました」と出たら、<b>「詳細情報」→「実行」</b>を押す</li>
+        <li><b>「次へ」→「完了」</b>を押すと、デスクトップに<b>「瞬き計測」</b>ができます</li>
+      </ol>
+      <div class="hint">管理者の権限は要りません。データの送り先や使い方はブラウザ版と同じです。アプリを消すときは、Windowsの「設定」→「アプリ」から消せます。</div>
+      <div class="modal-btns">
+        <button id="btn-win-close" class="stage-btn">閉じる</button>
+        <button id="btn-win-dl" class="stage-btn primary">ダウンロード</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── 活動の選択 ── -->
   <div class="modal" id="modal-activity">
     <div class="modal-card">
@@ -1032,7 +1062,7 @@
   // ============================================================
   //  BLINK STUDY — 瞬き計測システム（研究用）
   // ============================================================
-  const APP_VERSION     = 'ver4.17';
+  const APP_VERSION     = 'ver4.18';
   const LIB_VERSIONS    = { tasksVision: '0.10.35', faceLandmarkerModel: 'float16/1', faceMesh: '0.4.1633559619' };   // 読み込むMediaPipeのバージョン（固定）
   const CONSENT_VERSION = '2026-10';                         // 同意文を変えたら更新
 
@@ -1113,7 +1143,7 @@
     '5回瞬きして自動で設定': 'Set automatically with 5 blinks',
     // ── 共通・ヘッダー ──
     'BLINK STUDY — 瞬き計測システム': 'BLINK STUDY — Blink Measurement System',
-    '瞬き検出アプリ ver4.17（研究用）': 'Blink Detection App ver4.17 (Research)',
+    '瞬き検出アプリ ver4.18（研究用）': 'Blink Detection App ver4.18 (Research)',
     'メニュー': 'Menu',
     // ── メニュー ──
     '// 計測の設定': '// Measurement settings',
@@ -1136,6 +1166,14 @@
     '設定すると、時間になったら音を鳴らして自動で終了します。': 'If set, a sound plays and the measurement ends automatically at that time.',
     'カメラ': 'Camera',
     '（カメラ起動後に選べます）': '(Available after the camera starts)',
+    'Windows版アプリ': 'Windows app',
+    'Windows版アプリをインストール': 'Install the Windows app',
+    'ウィンドウを最小化しても計測が止まらない、パソコン用のアプリです。': 'A desktop app that keeps measuring even when the window is minimized.',
+    'ブラウザ版と同じ計測アプリです。ウィンドウを最小化したり、ほかの画面の後ろに隠れたりしても計測が止まりません。': 'The same measurement app as the browser version. It keeps measuring even when the window is minimized or hidden behind other windows.',
+    '管理者の権限は要りません。データの送り先や使い方はブラウザ版と同じです。アプリを消すときは、Windowsの「設定」→「アプリ」から消せます。': 'No administrator rights are needed. Data is sent to the same place and the app works the same as the browser version. To remove it, use Windows Settings → Apps.',
+    'ダウンロード': 'Download',
+    '閉じる': 'Close',
+    'ダウンロードを始めました。終わったら開いてください': 'Download started. Open the file when it finishes.',
     '外付けWebカメラを使うときは、ここで切り替えます（計測中は変更できません）。': 'Switch here when using an external webcam (cannot be changed during a measurement).',
     '低め': 'Low', 'やや低め': 'Med-low', '標準': 'Standard', 'やや高め': 'Med-high', '高め': 'High',
     '低め — まぶたが大きく動いたときだけ反応します': 'Low — reacts only to large eyelid movements',
@@ -1353,6 +1391,10 @@
     'thr-hint': 'After blinking a few times, move <b>the white line (sensitivity) between \u201cClosed\u201d and \u201cOpen\u201d</b>. If you change it during a measurement, the time of the change is recorded.',
     'opt-sound': 'Until the measurement starts, signal each detected blink with a <b>sound</b>',
     'opt-light': 'Until the measurement starts, signal each detected blink with a <b>light</b>',
+    'win-steps': '<li>Press <b>“Download”</b> below (about 110 MB)</li>' +
+      '<li>Open the downloaded <b>“BlinkStudy-Setup.exe”</b> (if the browser shows a warning, choose <b>“Keep”</b>)</li>' +
+      '<li>If “Windows protected your PC” appears, press <b>“More info” → “Run anyway”</b></li>' +
+      '<li>Press <b>“Next” → “Finish”</b>. A <b>“瞬き計測”</b> (Blink Study) icon appears on your desktop</li>',
   };
 
   const origText = new WeakMap(), origAttr = new WeakMap();
@@ -1426,6 +1468,36 @@
   const _alert = window.alert.bind(window);
   window.alert = msg => _alert(tr(String(msg)));
 
+
+  // ── Windows版アプリのインストール（Windowsのブラウザで開いたときだけメニューに出す）──────────
+  // ダウンロード先：空なら、GitHub Pages の URL（https://○○.github.io/リポジトリ名/）から
+  // 同じリポジトリの「Releases」の最新版の BlinkStudy-Setup.exe を自動で使う
+  const WIN_APP_URL = '';
+  function winAppUrl() {
+    if (WIN_APP_URL) return WIN_APP_URL;
+    const m = location.hostname.match(/^([^.]+)\.github\.io$/i);
+    if (!m) return '';
+    const repo = location.pathname.split('/').filter(Boolean)[0];
+    const name = repo && !/\.html?$/i.test(repo) ? repo : m[1] + '.github.io';
+    return `https://github.com/${m[1]}/${name}/releases/latest/download/BlinkStudy-Setup.exe`;
+  }
+  (function setupWinApp() {
+    const ua = navigator.userAgent || '';
+    const isWin = (navigator.userAgentData && navigator.userAgentData.platform === 'Windows') || /Windows NT/.test(ua);
+    const inApp = !!window.__BLINK_DESKTOP__ || /Electron\//.test(ua);
+    const url = winAppUrl();
+    if (!isWin || inApp || !url) return;
+    $('win-app-sec').hidden = false;
+    const modal = $('modal-win');
+    $('btn-win-install').addEventListener('click', () => { modal.classList.add('show'); });
+    $('btn-win-close').addEventListener('click', () => modal.classList.remove('show'));
+    $('btn-win-dl').addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = url; a.target = '_blank'; a.rel = 'noopener';
+      document.body.appendChild(a); a.click(); a.remove();
+      toast('ダウンロードを始めました。終わったら開いてください', 4000);
+    });
+  })();
 
   // ── toast（右側に「取り消す」などのボタンも付けられる）──────────
   let toastTimer = null;
